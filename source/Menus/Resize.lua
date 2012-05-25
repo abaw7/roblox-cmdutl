@@ -1,16 +1,3 @@
-local Menu = "Resize"
-table.insert(MenuList,Menu)
-Menus[Menu] = {
-	Tools = {};
-	Variables = {
-		Increment = 1;
-	};
-	VariableList = {
-		{"Increment","Resize Increment"};
-	};
-	Color = Color3.new(0.0156863, 0.686275, 0.92549);
-}
-
 local FF_CUSTOM = Enum.FormFactor.Custom
 
 -- fixes the resizing direction for a face

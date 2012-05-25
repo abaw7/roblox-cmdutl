@@ -259,7 +259,7 @@ function clear()
 end
 
 function data(path)
-	if type(vars) ~= 'string' then
+	if type(path) ~= 'string' then
 		print("WARNING: data: 1st argument must be a string",true)
 		return
 	end

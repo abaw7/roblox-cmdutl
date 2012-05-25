@@ -1,17 +1,47 @@
 --[==[
 gloo Change Log
 
+v0.12
+	- fixed bugs with Confirm dialog
+	- fixed bug with destroyed Stylists
 v0.11:
 	- started Change Log
-	- GetScreen now returns object if it is a ScreenGui
-	- added DockContainer
-	- added Sprite
-	- added TruncatingLabel
+	- changed documentation scheme (see Remarks in gloo.Help('Help'));
+		- library "functions" are now "entries"
+		- entry types in the library are indicated in square brackets
+		- moved class member definitions to separate section
+		- separated class members by type
+		- the type constructors return is the class it constructs, instead of "table"
+		- objects are properly refered to as objects instead of classes
+		- uses "GuiText" type
+	- added DockContainer constructor
+	- added Sprite constructor
+	- added TruncatingLabel constructor
+	- added NULL constant
+	- added DockedSide enum
 	- changed arguments of AutoSizeLabel
-	- documentation now uses "GuiText" type (see Remarks in gloo.Help('Help') for details)
+	- GetScreen returns the received object if it is a ScreenGui
 	- changed StackingFrame;
-		- SetPadding now accepts a `border` argument
-		- added GetIndex function
+		- SetPadding accepts a `border` argument
+		- added GetIndex method
+		- changed behavior of indices in RemoveObject and MoveObject
+	- changed Stylist;
+		- Stylist updates substylist's objects, instead of substylist's style (see documentation)
+		- added SetInternal method
+		- removed forced update arguments (now it always updates)
+		- removed overrides
+		- renamed SetGroup to SetProperties
+		- stylists keep track of their parenting stylists
+		- AddObject and RemoveObject return their input objects
+		- AddStyist and RemoveStylist return their input stylists
+		- added ObjectIn and StylistIn methods
+		- added AddObjects and RemoveObjects methods
+	- changed DetailedList;
+		- reflected changes to Stylist
+		- text-field type is no longer buggy
+		- values that row data list initially contains are automatically added
+	- added "dialog" sublibrary;
+		- added Confirm function
 v0.10:
 	- changed documentation scheme;
 		- arguments and returns divided into sections
@@ -22,9 +52,9 @@ v0.10:
 		- made function names more descriptive
 		- added overrides
 	- some ScrollBar class functions are aliased instead of switching names
-	- StackingFrame class now has "List" value
+	- StackingFrame class has "List" value
 	- changed arguments to ScrollingContainer
-	- Help function now accepts a function itself as an argument (just in case)
+	- Help function accepts a function itself as an argument (just in case)
 v0.9:
 	- added SetZIndexOnChanged function
 	- changed implimentation of SetZIndex
@@ -32,7 +62,7 @@ v0.9:
 	- added proper documentation for ScrollBar
 	- added proper documentation for ScrollingList
 	- added proper documentation for ScrollingContainer
-	- Help function argument is now case-insensitive
+	- Help function argument is case-insensitive
 v0.8:
 	- added GetScreen function
 	- changed `handle` back to `class` in documentation
@@ -45,7 +75,7 @@ v0.8:
 	- added Documentation Remarks section to gloo.Help('Help')
 v0.7:
 	- gloo does not load if gloo already exists
-	- SetZIndex now works recursively
+	- SetZIndex works recursively
 	- added `ignore_list` argument to SetZIndex
 	- changed `class` to `handle` in documentation
 	- expanded Stylists;
@@ -57,7 +87,7 @@ v0.7:
 		- removed SetGraphicStyle in favor of Stylists
 		- added "wrench" and "cross" polygons
 	- added "GUI" value to AutoSizeLabel class
-	- StackingFrame now considers Style padding
+	- StackingFrame considers Style padding
 	- changed TabContainer;
 		- fixed some transparency with default appearance
 		- changed default font to ArialBold
@@ -99,10 +129,10 @@ local WEAK_TABLES	= false	-- whether weak tables are enabled (causes problems un
 
 local lib = {}
 local doc = {}
-local version = "0.11 build 20120413"
+local version = "0.11"
 
 doc["Version"] = [==[
-Version ( )
+Version ( ) [function]
 	returns: string `version`
 
 Returns the current version of the library (currently ]==]..version..[==[).
@@ -111,6 +141,15 @@ Returns the current version of the library (currently ]==]..version..[==[).
 function lib.Version()
 	return version
 end
+
+doc["NULL"] = [==[
+NULL [const]
+
+Represents a "non-nil nil value". Used with tables that need a way to declare an entry as nil while still being defined in the table.
+]==]
+
+local NULL = {}
+lib.NULL = NULL
 
 local SORT = {
 	NONE = 0;
@@ -166,10 +205,29 @@ local function Modify(obj)
 	end
 end
 
+--[[
+local ENUM_MT = {
+	__tostring = function(e)
+		return "enum: "..e.__type
+	end;
+}
+
+local function CastToEnum(value,enum)
+	if value ~= '__type' then
+		for k,e in pairs(enum) do
+			if k == value then
+				return e
+			end
+		end
+	end
+	error('cannot cast `'..tostring(value)..'` to enum '..enum.__type,3)
+end
+--]]
+
 --[[DEPEND:]]
 
 doc["SetZIndex"] = [==[
-SetZIndex ( Instance `object`, number `zindex` )
+SetZIndex ( Instance `object`, number `zindex` ) [function]
 	returns: (nothing)
 
 Sets the ZIndex of `object`, then calls SetZIndex on every child of `object`.
@@ -222,7 +280,7 @@ lib.SetZIndexOnChanged = SetZIndexOnChanged
 --[[DEPEND:]]
 
 doc["GetScreen"] = [==[
-GetScreen ( Instance `object` )
+GetScreen ( Instance `object` ) [function]
 	returns ScreenGui `screen`
 
 Gets the nearest ascending ScreenGui of `object`.
@@ -253,7 +311,7 @@ lib.GetScreen = GetScreen
 --[[DEPEND:]]
 
 doc["GetPadding"] = [==[
-GetPadding ( GuiObject `object` )
+GetPadding ( GuiObject `object` ) [function]
 	returns: number `padding`
 
 Gets the padding amount for a Frame or GuiButton that has its Style property set.
@@ -304,26 +362,30 @@ end
 
 lib.GetPadding = GetPadding
 
---[[DEPENDS:]]
+--[[DEPEND:]]
 
 doc["Sprite"] = [==[
-Sprite ( Content `sprite_map`, GuiObject `sprite_frame`, Vector2, `sprite_size`, Vector2 `sprite_map_size`, bool `fix_blur` )
-	returns: table `class`, GuiObject `sprite_frame`
+Sprite ( Content `sprite_map`, GuiObject `sprite_frame`, Vector2, `sprite_size`, Vector2 `sprite_map_size`, bool `fix_blur` ) [constructor]
+	returns: Sprite `object`, GuiObject `sprite_frame`
 
 Creates a sprite from a sprite map (an image that holds smaller "sub-images").
 
 Arguments:
 	`sprite_map`
 		The image to use as the sprite map.
+
 	`frame`
 		The object that will contain the sprite image.
 		Optional; defaults to a new Frame
+
 	`sprite_size`
 		The dimensions of one sprite on the sprite map.
 		Optional; defaults to [32, 32]
+
 	`sprite_map_size`
 		The dimensions of the sprite map.
 		Optional; defaults to [256, 256]
+
 	`fix_blur`
 		Indicates whether image blurriness should be fixed.
 		Blurriness occurs because GUIs are offset by half a pixel, causing images to render "in-between" pixels.
@@ -331,11 +393,20 @@ Arguments:
 		Optional; defaults to true
 
 Returns:
-	`class`
-		Contains the following values:
-		GUI
-			The sprite itself.
+	`object`
+		The Sprite object.
 
+	`sprite_frame`
+		The sprite GUI.
+
+
+Sprite Class:
+	This class contains the following members:
+	Readonly:
+		GUI
+			The sprite GUI.
+
+	Methods:
 		SetOffset ( number `row`, number `column` )
 			Sets the offset of the sprite on the sprite map.
 			`row` and `column` represent the row and column on the sprite map, starting from 0.
@@ -347,9 +418,6 @@ Returns:
 		Destroy ( )
 			Releases the resources used by this object.
 			Run this if you're no longer using this object.
-
-	`sprite_frame`
-		The sprite itself.
 ]==]
 
 local function CreateSprite(sprite_map,SpriteFrame,sprite_size,map_size,fix_blur)
@@ -417,48 +485,84 @@ lib.Sprite = CreateSprite
 --[[DEPEND:]]
 
 doc["Stylist"] = [==[
-Stylist ( table `style` )
-	returns: table `class`, table `style`
+Stylist ( table `style` ) [constructor]
+	returns: Stylist `object`, table `style`
 
 Creates a new stylist, which manages the properties of an entire group of objects.
+
+More stylists can also be added, refered to as "substylists".
+
+When a property of a stylist is updated, the properties in the stylist's objects are updated to reflect it.
+The properties of objects in each substylist are also updated, but only if that property isn't defined in the substylist's Style.
 
 Arguments:
 	`style`
 		A table of property/value pairs.
+		The stylist's "Style".
 		Optional; defaults to an empty table.
 
 Returns:
-	`class`
-		Contains the following values:
+	`object`
+		The Stylist object.
+
+	`style`
+		The style table.
+
+
+Stylist Class:
+	Contains the following members:
+
+	Readonly:
 		Style
 			The `style` table.
 
+	Methods:
 		AddObject ( Instance `object`, table `alias_map` )
 			Adds `object` to the stylist and updates its properties.
 			If `alias_map` is specified, then for this object, properties in the style will first be mapped though this table (see Alias Maps).
+			Returns `object`
+
+		AddObjects ( table `objects`, table `alias_map` )
+			Adds multiple objects to the stylist.
+			`objects` is a list of objects to be added to the stylist.
+			If `alias_map` is specified, it will be applied to all objects in the list.
+			Returns `objects`
 
 		RemoveObject ( Instance `object` )
 			Removes `object` from the stylist.
+			Returns `object`
+
+		RemoveObjects ( table `objects` )
+			Removes multiple objects from the stylist.
+			`objects` is a list of objects to be removed from the stylist.
+			Returns `objects`
 
 		GetObjects ( )
 			Returns a list of objects added to this stylist.
 			Items in the list have no defined order.
 
-		SetProperty ( string `property`, * `value`, bool `update`, bool `no_overrides` )
+		ObjectIn ( Instance `object` )
+			If `object` is in the stylist, returns true.
+			If `object` has an alias in the stylist, returns the alias.
+			Otherwise, returns false.
+
+		SetProperty ( string `property`, * `value` )
 			Sets `property` in each object to `value`.
 			Also sets the value in the `style` table.
-			If `update` is true, objects will be updated even if `property` in `style` doesn't change.
-			If `no_override` is true, then overrides will not be updated (see Overrides).
 
-		SetGroup ( table `properties`, bool `update, bool `no_overrides` )
-			Similar to SetProperty, but allows you to set multiple properties at once.
-			`properties` is a table of propert/value pairs.
-			If `update` is true, objects will be updated even if a property in `style` doesn't change.
-			If `no_override` is true, then overrides will not be updated (see Overrides).
+		SetProperties ( table `properties` )
+			Similar to SetProperty, but sets multiple properties at once.
+			`properties` is a table of property/value pairs.
+			To set a property to nil, use ]==]..PROJECT_NAME..[==[.NULL as the value.
 
-		Update ( bool `no_override` )
-			Updates every objects' properties to reflect values in the `style` table.
-			If `no_override` is true, then overrides will not be updated (see Overrides).
+		ClearProperties ( )
+			Clears all set properties in the style table.
+
+		Update ( )
+			Updates each object's properties to reflect values in the `style` table.
+
+		SetInternal ( string `property`, * `value` )
+			Sets the properties of the stylist's objects and substylists without modifying the stylist's Style.
 
 		Destroy ( )
 			Releases the resources used by this object.
@@ -466,9 +570,8 @@ Returns:
 
 		AddStylist ( Stylist `stylist`, table `alias_map` )
 			Adds `stylist` to this stylist and updates its properties.
-			If `alias_map` is specified, then for this object, properties in the style will first be mapped though this table (see Alias Maps).
+			If `alias_map` is specified, then for this stylist, properties in the style will first be mapped though this table (see Alias Maps).
 			Adding two stylists to each other is not recommended.
-			(See Adding Stylists)
 
 		RemoveStylist ( Stylist `stylist` )
 			Removes `stylist` for this stylist.
@@ -477,185 +580,121 @@ Returns:
 			Returns a list of stylists added to this stylist.
 			Items in the list have no defined order.
 
-		AddOverride ( Stylist `override`, number `index` )
-			Adds `override` to the stylist.
-			If `index` is specified, then `override` will be added at that index.
-
-		RemoveOverride ( Stylist `override` )
-			Removes `override` from the stylist.
-			`override` may also be a number, which indicates the index of the override to remove.
-			Returns the removed override.
+		StylistIn ( Stylist `stylist` )
+			If `stylist` is in the stylist, returns true.
+			If `stylist` has an alias in the stylist, returns the alias.
+			Otherwise, returns false.
 
 
 Alias Maps:
 	These let you set the property of an object as if it were another.
 	For example, if an alias map contains ["TextColor3"] = "BackgroundColor3", then
-	the object will have its BackgroundColor3 property set using the TextColor3 value in the style.
-	This implies that both properties should have the same type, or at least be convertible.
-
-
-Adding Stylists:
-	Other stylists can be added to a stylist as a "sub-stylist".
-	When a property in the stylist is updated, the same property in sub-stylists also gets updated.
-
-
-Overrides:
-	When this stylist is updated, any "overrides" that have been added to it will also be updated.
-	Because objects can be apart of more than one stylist, conflicts can arise.
-	When updating a stylist of lower precedence, one would also have to update stylists of higher precedence.
-	Overrides simply automate this process.
+	the object will have its BackgroundColor3 property set using the TextColor3 value in the Style.
+	This implies that both properties have the same type, or at least be convertible.
 ]==]
 
 local function CreateStylist(StyleTable)
 	StyleTable = StyleTable or {}
+	local ParentStylists = {}
+	local Class = {
+		Style = StyleTable;
+		ParentStylists = ParentStylists;
+	}
+
 	local ObjectLookup = WEAK_TABLES and setmetatable({},WEAK_MODE.K) or {}
 	local AliasObjectLookup = WEAK_TABLES and setmetatable({},WEAK_MODE.K) or {}
 									-- ISSUE: objects are getting dropped when they obviously haven't been collected 
 	local StylistLookup = WEAK_TABLES and setmetatable({},WEAK_MODE.K) or {}
 	local AliasStylistLookup = WEAK_TABLES and setmetatable({},WEAK_MODE.K) or {}
-
-	local Overrides = WEAK_TABLES and setmetatable({},WEAK_MODE.V) or {}
 	
 	local function pset(t,k,v)
 		t[k] = v
 	end
-	
-	local function SetProperty(property,value,update,no_override)
-		local old = StyleTable[property]
-		if value ~= old or update then
-			StyleTable[property] = value
-			for object in pairs(ObjectLookup) do
-				pcall(pset,object,property,value)
-			end
-			for stylist in pairs(StylistLookup) do
-			--	if stylist.Style[property] ~= nil then
-					stylist.SetProperty(property,value,update)
-			--	end
-			end
-			for object,alias_map in pairs(AliasObjectLookup) do
-				local alias = alias_map[property]
-				if alias then
-					pcall(pset,object,alias,value)
-				else
-					pcall(pset,object,property,value)
-				end
-			end
-			for stylist,alias_map in pairs(AliasStylistLookup) do
-			--	if stylist.Style[property] ~= nil then
-					local alias = alias_map[property]
-					if alias then
-						stylist.SetProperty(alias,value,update)
-					else
-						stylist.SetProperty(property,value,update)
-					end
-			--	end
-			end
-			if not no_override then
-				for i,override in pairs(Overrides) do
-					override.Update()
-				end
-			end
+
+	local function set_object(object,property,value)
+		pcall(pset,object,property,value)
+	end
+
+	local function set_stylist(stylist,property,value)
+		if stylist.Style[property] == nil then
+			stylist.SetInternal(property,value)
 		end
 	end
-	
-	local function SetGroup(new_style,update,no_override)
-		for property,value in pairs(new_style) do
-			local old = StyleTable[property]
-			if value ~= old or update then
-				StyleTable[property] = value
-				for object in pairs(ObjectLookup) do
-					pcall(pset,object,property,value)
-				end
-				for stylist in pairs(StylistLookup) do
-				--	if stylist.Style[property] ~= nil then
-						stylist.SetProperty(property,value,update)
-				--	end
-				end
-				for object,alias_map in pairs(AliasObjectLookup) do
-					local alias = alias_map[property]
-					if alias then
-						pcall(pset,object,alias,value)
-					else
-						pcall(pset,object,property,value)
-					end
-				end
-				for stylist,alias_map in pairs(AliasStylistLookup) do
-				--	if stylist.Style[property] ~= nil then
-						local alias = alias_map[property]
-						if alias then
-							stylist.SetProperty(alias,value,update)
-						else
-							stylist.SetProperty(property,value,update)
-						end
-				--	end
-				end
-			end
-		end
-		if not no_override then
-			for i,override in pairs(Overrides) do
-				override.Update()
-			end
+
+	local function set_alias_object(object,alias_map,property,value)
+		local alias = alias_map[property]
+		if alias then
+			pcall(pset,object,alias,value)
+		else
+			pcall(pset,object,property,value)
 		end
 	end
-	
-	local function Update(no_override)
-		for property,value in pairs(StyleTable) do
-			for object in pairs(ObjectLookup) do
-				pcall(pset,object,property,value)
+
+	local function set_alias_stylist(stylist,alias_map,property,value)
+		local alias = alias_map[property]
+		if alias then
+			if stylist.Style[alias] == nil then
+				stylist.SetInternal(alias,value)
 			end
-			for stylist in pairs(StylistLookup) do
-			--	if stylist.Style[property] ~= nil then
-					stylist.SetProperty(property,value)
-			--	end
-			end
-			for object,alias_map in pairs(AliasObjectLookup) do
-				local alias = alias_map[property]
-				if alias then
-					pcall(pset,object,alias,value)
-				else
-					pcall(pset,object,property,value)
-				end
-			end
-			for stylist,alias_map in pairs(AliasStylistLookup) do
-			--	if stylist.Style[property] ~= nil then
-					local alias = alias_map[property]
-					if alias then
-						stylist.SetProperty(alias,value)
-					else
-						stylist.SetProperty(property,value)
-					end
-			--	end
-			end
-		end
-		if not no_override then
-			for i,override in pairs(Overrides) do
-				override.Update()
+		else
+			if stylist.Style[property] == nil then
+				stylist.SetInternal(property,value)
 			end
 		end
 	end
 	
 	local function AddObject(object,alias_map)
-		if alias_map and type(alias_map) == "table" then
+		if type(alias_map) == "table" then
 			AliasObjectLookup[object] = alias_map
 			for property,value in pairs(StyleTable) do
-				local alias = alias_map[property]
-				if alias then
-					pcall(pset,object,alias,value)
-				else
-					pcall(pset,object,property,value)
-				end
+				set_alias_object(object,alias_map,property,value)
 			end
 		else
 			ObjectLookup[object] = true
 			for property,value in pairs(StyleTable) do
-				pcall(pset,object,property,value)
+				set_object(object,property,value)
 			end
 		end
+		for parent in pairs(ParentStylists) do
+			parent.Update(Class)
+		end
+		return object
+	end
+
+	local function AddObjects(objects,alias_map)
+		if type(alias_map) == "table" then
+			for i,object in pairs(objects) do
+				AliasObjectLookup[object] = alias_map
+				for property,value in pairs(StyleTable) do
+					set_alias_object(object,alias_map,property,value)
+				end
+			end
+		else
+			for i,object in pairs(objects) do
+				ObjectLookup[object] = true
+				for property,value in pairs(StyleTable) do
+					set_object(object,property,value)
+				end
+			end
+		end
+		for parent in pairs(ParentStylists) do
+			parent.Update(Class)
+		end
+		return objects
 	end
 	
 	local function RemoveObject(object)
 		ObjectLookup[object] = nil
 		AliasObjectLookup[object] = nil
+		return object
+	end
+
+	local function RemoveObjects(objects)
+		for i,object in pairs(objects) do
+			ObjectLookup[object] = nil
+			AliasObjectLookup[object] = nil
+		end
+		return objects
 	end
 
 	local function GetObjects()
@@ -669,34 +708,40 @@ local function CreateStylist(StyleTable)
 		return list
 	end
 
-	local function AddStylist(stylist,alias_map)
-		if alias_map and type(alias_map) == "table" then
-			AliasStylistLookup[stylist] = alias_map
-			local in_style = stylist.Style
-			for property,value in pairs(StyleTable) do
-			--	if in_style[property] ~= nil then
-					local alias = alias_map[property]
-					if alias then
-						stylist.SetProperty(alias,value)
-					else
-						stylist.SetProperty(property,value)
-					end
-			--	end
-			end
+	local function ObjectIn(object)
+		if ObjectLookup[object] then
+			return true
+		elseif AliasObjectLookup[object] then
+			return ObjectAliasLookup[object]
 		else
-			StylistLookup[stylist] = true
-			local in_style = stylist.Style
-			for property,value in pairs(StyleTable) do
-			--	if in_style[property] ~= nil then
-					stylist.SetProperty(property,value)
-			--	end
-			end
+			return false
 		end
 	end
 
+	local function AddStylist(stylist,alias_map)
+		stylist.ParentStylists[Class] = true
+		if alias_map and type(alias_map) == "table" then
+			AliasStylistLookup[stylist] = alias_map
+			for property,value in pairs(StyleTable) do
+				set_alias_stylist(stylist,alias_map,property,value)
+			end
+		else
+			StylistLookup[stylist] = true
+			for property,value in pairs(StyleTable) do
+				set_stylist(stylist,property,value)
+			end
+		end
+		for parent in pairs(ParentStylists) do
+			parent.Update(Class)
+		end
+		return stylist
+	end
+
 	local function RemoveStylist(stylist)
+		stylist.ParentStylists[Class] = nil
 		StylistLookup[stylist] = nil
 		AliasStylistLookup[stylist] = nil
+		return stylist
 	end
 
 	local function GetStylists()
@@ -710,50 +755,123 @@ local function CreateStylist(StyleTable)
 		return list
 	end
 
-	local function AddOverride(override,index)
-		for i,v in pairs(Overrides) do
-			if v == override then
-				return
-			end
-		end
-		if index then
-			table.insert(Overrides,index,override)
+	local function StylistIn(stylist)
+		if StylistLookup[stylist] then
+			return true
+		elseif AliasStylistLookup[stylist] then
+			return StylistAliasLookup[stylist]
 		else
-			table.insert(Overrides,override)
+			return false
 		end
 	end
 
-	local function RemoveOverride(index)
-		if type(index) == "number" then
-			index = ClampIndex(Overrides,index)
+	local function SetInternal(property,value)
+		for object in pairs(ObjectLookup) do
+			set_object(object,property,value)
+		end
+		for stylist in pairs(StylistLookup) do
+			set_stylist(stylist,property,value)
+		end
+		for object,alias_map in pairs(AliasObjectLookup) do
+			set_alias_object(object,alias_map,property,value)
+		end
+		for stylist,alias_map in pairs(AliasStylistLookup) do
+			set_alias_stylist(stylist,alias_map,property,value)
+		end
+	end
+	
+	local function SetProperty(property,value)
+		if value == nil or value == NULL then
+			StyleTable[property] = nil
+			for parent in pairs(ParentStylists) do
+				parent.Update(Class)
+			end
 		else
-			if index == nil then
-				index = #Overrides
+			StyleTable[property] = value
+			SetInternal(property,value)
+		end
+	end
+	
+	local function SetProperties(new_style)
+		local continue = false
+		for property,value in pairs(new_style) do
+			if value == NULL then
+				StyleTable[property] = nil
+				continue = true
 			else
-				index = GetIndex(Overrides,index)
+				StyleTable[property] = value
+				SetInternal(property,value)
 			end
 		end
-		if index then
-			local object = table.remove(Overrides,index)
-			return object
+		if continue then
+			for parent in pairs(ParentStylists) do
+				parent.Update(Class)
+			end
 		end
 	end
 
-	local Class = {
-		Style = StyleTable;
-		SetProperty = SetProperty;
-		SetGroup = SetGroup;
-		GetObjects = GetObjects;
-		Update = Update;
-		AddObject = AddObject;
-		RemoveObject = RemoveObject;
-		AddStylist = AddStylist;
-		RemoveStylist = RemoveStylist;
-		GetStylists = GetStylists;
-		AddOverride = AddOverride;
-		RemoveOverride = RemoveOverride;
-	}
-	local function Destroy()
+	local function ClearProperties()
+		for property,value in pairs(StyleTable) do
+			StyleTable[property] = nil
+		end
+		for parent in pairs(ParentStylists) do
+			parent.Update(Class)
+		end
+	end
+	
+	local function Update(object)
+		for parent in pairs(ParentStylists) do
+			parent.Update(Class)
+		end
+		if object then
+			if ObjectLookup[object] then
+				for property,value in pairs(StyleTable) do
+					set_object(object,property,value)
+				end
+			elseif StylistLookup[object] then
+				for property,value in pairs(StyleTable) do
+					set_stylist(object,property,value)
+				end
+			elseif AliasObjectLookup[object] then
+				local alias_map = AliasObjectLookup[object]
+				for property,value in pairs(StyleTable) do
+					set_alias_object(object,alias_map,property,value)
+				end
+			elseif AliasStylistLookup[object] then
+				for property,value in pairs(StyleTable) do
+					set_alias_stylist(object,alias_map,property,value)
+				end
+			end
+		else
+			for property,value in pairs(StyleTable) do
+				SetInternal(property,value)
+			end
+		end
+	end
+
+	Class.AddObject = AddObject;
+	Class.AddObjects = AddObjects;
+	Class.RemoveObject = RemoveObject;
+	Class.RemoveObjects = RemoveObjects;
+	Class.GetObjects = GetObjects;
+	Class.ObjectIn = ObjectIn;
+	Class.AddStylist = AddStylist;
+	Class.RemoveStylist = RemoveStylist;
+	Class.GetStylists = GetStylists;
+	Class.StylistIn = StylistIn;
+	Class.SetInternal = SetInternal;
+	Class.SetProperty = SetProperty;
+	Class.SetProperties = SetProperties;
+	Class.ClearProperties = ClearProperties;
+	Class.Update = Update;
+
+	function Class.Destroy()
+		for parent in pairs(ParentStylists) do
+			if parent.RemoveStylist then
+				parent.RemoveStylist(Class)
+			end
+			ParentStylists[parent] = nil
+		end
 		for k in pairs(Class) do
 			Class[k] = nil
 		end
@@ -769,11 +887,7 @@ local function CreateStylist(StyleTable)
 		for k in pairs(AliasStylistLookup) do
 			AliasStylistLookup[k] = nil
 		end
-		for k in pairs(Overrides) do
-			Overrides[k] = nil
-		end
 	end
-	Class.Destroy = Destroy
 	
 	return Class,StyleTable
 end
@@ -783,8 +897,8 @@ lib.Stylist = CreateStylist
 --[[DEPEND:]]
 
 doc["AutoSizeLabel"] = [==[
-AutoSizeLabel ( GuiText `label` )
-	returns: table `class`, GuiText `label`
+AutoSizeLabel ( GuiText `label` ) [constructor]
+	returns: AutoSizeLabel `object`, GuiText `label`
 
 Creates a text GUI that automatically resizes to its text.
 Note that this is dependant on the TextBounds property.
@@ -795,11 +909,20 @@ Arguments:
 		Optional; defaults to a new TextLabel
 
 Returns:
-	`class`
-		Contains the following values:
-		GUI
-			The auto-sizing label itself.
+	`object`
+		The AutoSizingLabel object.
+	`label`
+		The auto-sizing label GUI.
 
+
+AutoSizeLabel Class:
+	This class contains the following members:
+
+	Read-Only:
+		GUI
+			The auto-sizing label GUI.
+
+	Methods:
 		LockAxis ( number `x`, number `y` )
 			Locks the size of the label on an axis to a specific amount.
 			`x` sets the amount, in pixels, to lock to on the x axis.
@@ -823,12 +946,10 @@ Returns:
 		Destroy ( )
 			Releases the resources used by this object.
 			Run this if you're no longer using this object.
-
-	`label`
-		The auto-sizing label itself.
 ]==]
 
 local function CreateAutoSizeLabel(Label)
+	local Class = {}
 	if not Label then
 		Label = Create'TextLabel'{
 			Name = "AutoSizeLabel";
@@ -839,6 +960,7 @@ local function CreateAutoSizeLabel(Label)
 			Font = "ArialBold";
 		}
 	end
+	Class.GUI = Label
 	
 	local pt,pr,pb,pl = 0,0,0,0
 	local t,r,b,l = 0,0,0,0
@@ -849,8 +971,9 @@ local function CreateAutoSizeLabel(Label)
 		local y = ly or bounds.y+t+b
 		Label.Size = UDim2.new(0,x,0,y)
 	end
+	Class.Update = Update
 	
-	local function ReflectPadding()
+	local function reflectPadding()
 		t,r,b,l = pt,pr,pb,pl
 		if Label.TextXAlignment == Enum.TextXAlignment.Left then
 			l = 0
@@ -877,28 +1000,24 @@ local function CreateAutoSizeLabel(Label)
 		else
 			pt,pr,pb,pl = 0,0,0,0
 		end
-		ReflectPadding()
+		reflectPadding()
 	end
+	Class.SetPadding = SetPadding
 	
 	local function LockAxis(x,y)
 		lx,ly = x,y
 		Update()
 	end
+	Class.LockAxis = LockAxis
 	
 	local con = Label.Changed:connect(function(p)
 		if p == "TextBounds" then
 			Update()
 		elseif p == "TextXAlignment" or p == "TextYAlignment" then
-			ReflectPadding()
+			reflectPadding()
 		end
 	end)
 	
-	local Class = {
-		GUI = Label;
-		Update = Update;
-		LockAxis = LockAxis;
-		SetPadding = SetPadding;
-	}
 	local function Destroy()
 		for k in pairs(Class) do
 			Class[k] = nil
@@ -917,7 +1036,7 @@ lib.AutoSizeLabel = CreateAutoSizeLabel
 --[[DEPEND:]]
 
 doc["TruncatingLabel"] = [==[
-TruncatingLabel ( GuiText `label` )
+TruncatingLabel ( GuiText `label` ) [constructor]
 	returns: GuiText `label`
 
 Creates a label that displays truncated text.
@@ -930,7 +1049,7 @@ Arguments:
 
 Returns:
 	`label`
-		The label itself.
+		The label GUI.
 ]==]
 
 local function CreateTruncatingLabel(Label)
@@ -1009,9 +1128,145 @@ lib.TruncatingLabel = CreateTruncatingLabel
 
 --[[DEPEND:]]
 
+doc["DockedSide"] = [==[
+DockedSide [enum]
+
+Represents a side that a dockable was docked on.
+
+Enumerators:
+	0:None
+		Represents no sides of a dockable
+	1:Left
+		Represents the left side of a dockable
+	2:Right
+		Represents the right side of a dockable
+	4:Top
+		Represents the top side of a dockable
+	8:Bottom
+		Represents the bottom side of a dockable
+]==]
+
+local DockedSide = {
+	None = 0;
+	Left = 1;
+	Top = 2;
+	Right = 4;
+	Bottom = 8;
+	[0] = 'None';
+	[1] = 'Left';
+	[2] = 'Top';
+	[4] = 'Right';
+	[8] = 'Bottom';
+}
+lib.DockedSide = DockedSide
+
+--[===[
+doc["DockedSide"] = [==[
+[enum] DockedSide
+
+Represents a side that a dockable was docked on.
+
+Enumerators:
+	Left
+		Represents the left side of a dockable
+	Right
+		Represents the right side of a dockable
+	Top
+		Represents the top side of a dockable
+	Bottom
+		Represents the bottom side of a dockable
+
+	XAxis
+		Represents docking on the XAxis
+		Equal to Left and Right
+	YAxis
+		Represents docking on the YAxis
+		Equal to Top and Bottom
+	Inner
+		Represents docking on the inner sides (towards 0,0)
+		Equal to Left and Top
+	Outer
+		Represents docking on the outer sides (away from 0,0)
+		Equal to Right and Bottom
+
+	None
+		Represents no sides, or neither the X nor Y axis
+		Equal to Center
+	Center
+		Represents no docking, or docked on neither the inner or outer sides
+		Equal to None
+
+Value Casts:
+	-1, "-1"
+		-> Inner
+	0, "0"
+		-> Center
+	1, "1"
+		-> Outer
+	"x", "X"
+		-> XAxis
+	"y", "Y"
+		-> YAxis
+	"" (empty string)
+		-> None
+]==]
+
+local DockedSide do
+	local enum = setmetatable({__type = "DockedSide"},ENUM_MT)
+	local mt = {
+		__eq = function(a,b)
+			local n = b[1]
+			for i = 1,#a do
+				if a[i] == n then
+					return true
+				end
+			end
+			return false
+		end;
+		__tostring = function(e)
+			return e.__type..'.'..e[1]
+		end;
+	}
+
+---- Enumerators
+	enum.Left	= setmetatable({__type = enum.__type, 'Left','XAxis','Inner'},mt)
+	enum.Right	= setmetatable({__type = enum.__type, 'Right','XAxis','Outer'},mt)
+	enum.Top	= setmetatable({__type = enum.__type, 'Top','YAxis','Inner'},mt)
+	enum.Bottom	= setmetatable({__type = enum.__type, 'Bottom','YAxis','Outer'},mt)
+
+	enum.XAxis	= setmetatable({__type = enum.__type, 'XAxis','Left','Right'},mt)
+	enum.YAxis	= setmetatable({__type = enum.__type, 'YAxis','Top','Bottom'},mt)
+	enum.Inner	= setmetatable({__type = enum.__type, 'Inner','Left','Top'},mt)
+	enum.Outer	= setmetatable({__type = enum.__type, 'Outer','Right','Bottom'},mt)
+
+	enum.None	= setmetatable({__type = enum.__type, 'None','Center'},mt)
+	enum.Center	= setmetatable({__type = enum.__type, 'Center','None'},mt)
+
+---- Value Casts
+	enum['x'] = enum.XAxis
+	enum['y'] = enum.YAxis
+	enum[''] = enum.None
+
+	enum['X'] = enum.XAxis
+	enum['Y'] = enum.YAxis
+
+	enum[-1] = enum.Inner
+	enum[0] = enum.Center
+	enum[1] = enum.Outer
+
+	enum['-1'] = enum.Inner
+	enum['0'] = enum.Center
+	enum['1'] = enum.Outer
+
+---- Finish
+	DockedSide = enum
+	lib.DockedSide = enum
+end
+]===]
+
 doc["DockContainer"] = [==[
-DockContainer ( GuiBase `container` )
-	returns: table `class`, GuiBase `container`
+DockContainer ( GuiBase `container` ) [constructor]
+	returns: DockContainer `object`, GuiBase `container`
 
 Creates a container whose children can snap to each others' edges when dragged (referred to as "dockables").
 Only children that are GuiButtons will be made draggable.
@@ -1023,11 +1278,20 @@ Arguments:
 		Optional; defaults to a new ScreenGui
 
 Returns:
-	`class`
-		Contains the following values:
-		GUI
-			The container itself.
+	`object`
+		The DockContainer object.
 
+	`container`
+		The container GUI.
+
+DockContainer Class:
+	This class contains the following members:
+
+	Readonly:
+		GUI
+			The container GUI.
+
+	Fields:
 		SnapWidth
 			A number indicating the space (in pixels) required between the edges of two dockables before one snaps to the other.
 			Initially, this value is 16.
@@ -1049,6 +1313,7 @@ Returns:
 			A number indicating the amount to increase the ZIndex of a dockable by when it is dragged.
 			Initially, this value is 1.
 
+	Methods:
 		InvokeDrag ( GuiObject `dragged`, Vector2 `mouse_offset` )
 			Starts dragging `dragged` as if it were clicked.
 			`mouse_offset` is the position of the mouse when it "clicked" the object, in relation to the object.
@@ -1056,35 +1321,44 @@ Returns:
 		StopDrag ( )
 			Stops the dragging of an object, if there is an object being dragged.
 
+	Callbacks:
+		DragBeginCallback ( GuiObject `dragged`, Vector2 `mouse_offset` )
+			Called before an object starts being dragged.
+			`dragged` is the object being dragged.
+			`mouse_offset` is the position of the mouse, in relation to the object.
+			If the function returns false, then the drag will be canceled.
+
 		DragCallback ( GuiObject `dragged`, Vector2 `mouse_offset` )
-			A function called when an object is dragged, before the object updates.
+			Called when an object is dragged, before the object updates.
 			`dragged` is the object being dragged.
 			`mouse_offset` is the location of the mouse when it started dragging, in relation to the object.
 			If the function returns false, then the object's position will not be updated.
 
-		DragBeginCallback ( GuiObject `dragged`, Vector2 `mouse_offset` )
-			A function called before an object starts being dragged.
-			`dragged` is the object being dragged.
-			`mouse_offset` is the position of the mouse, in relation to the object.
-			If the function returns false, then the drag will be canceled.
-			
-		DragStopCallback ( GuiObject `dragged`, Vector2 `mouse_pos` )
-			A function called after an object stops being dragged.
-			`dragged` is the object that was dragged.
-			`mouse_offset` is the position of the mouse when it started dragging, in relation to the object.
-
-		DockCallback ( GuiObject `dragged`, GuiObject `docked`, string `axis`, number `side` )
-			A function called before the currently dragged object snaps to another dockable.
+		DockCallback ( GuiObject `dragged`, GuiObject `docked`, DockedSide `docked_side` )
+			Called before the currently dragged object snaps to another dockable.
 			`dragged` is the current object being dragged.
-			`docked` is the dockable that `dragged` snapped to (if available).
-			`axis` is the axis the dockable snapped on ("x"or "y")
-			`side` is the side of the dockable that was snapped on (0 or 1).
+			`docked` is the dockable that `dragged` snapped to.
+			`docked_side` is the side of `dragged` that was docked on.
 			Note that `docked` can be the container, if objects are allowed to snap to it.
 			If the function returns false, then the snap to the dockable will be canceled.
 
-	`container`
-		The container itself
+	Events:
+		DragBegin ( GuiObject `dragged`, Vector2 `mouse_offset` )
+			Fired after an object start being dragged.
+			`dragged` is the object being dragged.
+			`mouse_offset` is the position of the mouse, in relation to the object.
 
+		DragStopped ( GuiObject `dragged`, Vector2 `mouse_pos` )
+			Called after an object stops being dragged.
+			`dragged` is the object that was dragged.
+			`mouse_offset` is the position of the mouse when it started dragging, in relation to the object.
+
+		ObjectDocked ( GuiObject `dragged`, GuiObject `docked`, DockedSide `docked_side` )
+			Fired after the currently dragged objects snaps to another dockable.
+			`dragged` is the current object being dragged.
+			`docked` is the dockable that `dragged` snapped to.
+			`docked_side` is the side of `dragged` that was docked on.
+			Note that `docked` can be the container, if objects are allowed to snap to it.
 ]==]
 
 local function CreateDockContainer(Container)
@@ -1116,6 +1390,16 @@ local function CreateDockContainer(Container)
 	local function stopDragDefault()
 		return false,"no object is being dragged"
 	end
+	Class.StopDrag = stopDragDefault
+
+	local eventDragBegin = Instance.new("BindableEvent")
+	Class.DragBegin = eventDragBegin.Event
+
+	local eventDragStopped = Instance.new("BindableEvent")
+	Class.DragStopped = eventDragStopped.Event
+
+	local eventObjectDocked = Instance.new("BindableEvent")
+	Class.ObjectDocked = eventObjectDocked.Event
 
 	local function InvokeDrag(dockable,mouse_offset)
 		if Class.DragBeginCallback then
@@ -1157,23 +1441,31 @@ local function CreateDockContainer(Container)
 
 						if Apos.x + Asize.x >= sApos.x and Apos.x <= sApos.x + sAsize.x then
 							if math.abs((Apos.y + Asize.y) - sApos.y) <= snapWidth then
-								if Class.DockCallback(dockable,sibling,"y",0) ~= false then
+								if Class.DockCallback(dockable,sibling,DockedSide.Bottom) ~= false then
+									-- docked on bottom side
 									y = sApos.y - cApos.y - Asize.y
+									eventObjectDocked:Fire(dockable,sibling,DockedSide.Bottom)
 								end
 							elseif math.abs(Apos.y - (sApos.y + sAsize.y)) <= snapWidth then
-								if Class.DockCallback(dockable,sibling,"y",1) ~= false then
+								if Class.DockCallback(dockable,sibling,DockedSide.Top) ~= false then
+									-- docked on top side
 									y = sApos.y - cApos.y + sAsize.y
+									eventObjectDocked:Fire(dockable,sibling,DockedSide.Top)
 								end
 							end
 						end
 						if Apos.y + Asize.y >= sApos.y and Apos.y <= sApos.y + sAsize.y then
 							if math.abs((Apos.x + Asize.x) - sApos.x) <= snapWidth then
-								if Class.DockCallback(dockable,sibling,"x",0) ~= false then
+								if Class.DockCallback(dockable,sibling,DockedSide.Right) ~= false then
+									-- docked on right side
 									x = sApos.x - cApos.x - Asize.x
+									eventObjectDocked:Fire(dockable,sibling,DockedSide.Right)
 								end
 							elseif math.abs(Apos.x - (sApos.x + sAsize.x)) <= snapWidth then
-								if Class.DockCallback(dockable,sibling,"x",1) ~= false then
+								if Class.DockCallback(dockable,sibling,DockedSide.Left) ~= false then
+									-- docked on left side
 									x = sApos.x - cApos.x + sAsize.x
+									eventObjectDocked:Fire(dockable,sibling,DockedSide.Left)
 								end
 							end
 						end
@@ -1181,40 +1473,56 @@ local function CreateDockContainer(Container)
 				end
 				if Class.ConstrainToContainer then
 					if APY < cApos.y then
-						if Class.DockCallback(dockable,Container,"y",0) ~= false then
+						if Class.DockCallback(dockable,Container,DockedSide.Top) ~= false then
+							-- docked on top side
 							y = 0
+							eventObjectDocked:Fire(dockable,Container,DockedSide.Top)
 						end
 					elseif APY + ASY > cApos.y + cAsize.y then
-						if Class.DockCallback(dockable,Container,"y",1) ~= false then
+						if Class.DockCallback(dockable,Container,DockedSide.Bottom) ~= false then
+							-- docked on bottom side
 							y = cAsize.y - ASY
+							eventObjectDocked:Fire(dockable,Container,DockedSide.Bottom)
 						end
 					end
 					if APX < cApos.x then
-						if Class.DockCallback(dockable,Container,"x",0) ~= false then
+						if Class.DockCallback(dockable,Container,DockedSide.Left) ~= false then
+							-- docked on left side
 							x = 0
+							eventObjectDocked:Fire(dockable,Container,DockedSide.Left)
 						end
 					elseif APX + ASX > cApos.x + cAsize.x then
-						if Class.DockCallback(dockable,Container,"x",1) ~= false then
+						if Class.DockCallback(dockable,Container,DockedSide.Right) ~= false then
+							-- docked on right side
 							x = cAsize.x - ASX
+							eventObjectDocked:Fire(dockable,Container,DockedSide.Right)
 						end
 					end
 				elseif Class.SnapToEdge then
 					if math.abs(APY - cApos.y) <= snapWidth then
-						if Class.DockCallback(dockable,Container,"y",0) ~= false then
+						if Class.DockCallback(dockable,Container,DockedSide.Top) ~= false then
+							-- docked on top side
 							y = 0
+							eventObjectDocked:Fire(dockable,Container,DockedSide.Top)
 						end
 					elseif math.abs((APY+ASY) - (cApos.y+cAsize.y)) <= snapWidth then
-						if Class.DockCallback(dockable,Container,"y",1) ~= false then
+						if Class.DockCallback(dockable,Container,DockedSide.Bottom) ~= false then
+							-- docked on bottom side
 							y = cAsize.y - ASY
+							eventObjectDocked:Fire(dockable,Container,DockedSide.Bottom)
 						end
 					end
 					if math.abs(APX - cApos.x) <= snapWidth then
-						if Class.DockCallback(dockable,Container,"x",0) ~= false then
+						if Class.DockCallback(dockable,Container,DockedSide.Left) ~= false then
+							-- docked on left side
 							x = 0
+							eventObjectDocked:Fire(dockable,Container,DockedSide.Left)
 						end
 					elseif math.abs((APX+ASX) - (cApos.x+cAsize.x)) <= snapWidth then
-						if Class.DockCallback(dockable,Container,"x",1) ~= false then
+						if Class.DockCallback(dockable,Container,DockedSide.Right) ~= false then
+							-- docked on right side
 							x = cAsize.x - ASX
+							eventObjectDocked:Fire(dockable,Container,DockedSide.Right)
 						end
 					end
 				end
@@ -1227,15 +1535,19 @@ local function CreateDockContainer(Container)
 						if Apos.x + Asize.x >= sApos.x and Apos.x <= sApos.x + sAsize.x then
 							if math.abs((Apos.y + Asize.y) - sApos.y) <= snapWidth then
 								y = sApos.y - cApos.y - Asize.y
+								eventObjectDocked:Fire(dockable,sibling,DockedSide.Bottom)
 							elseif math.abs(Apos.y - (sApos.y + sAsize.y)) <= snapWidth then
 								y = sApos.y - cApos.y + sAsize.y
+								eventObjectDocked:Fire(dockable,sibling,DockedSide.Top)
 							end
 						end
 						if Apos.y + Asize.y >= sApos.y and Apos.y <= sApos.y + sAsize.y then
 							if math.abs((Apos.x + Asize.x) - sApos.x) <= snapWidth then
 								x = sApos.x - cApos.x - Asize.x
+								eventObjectDocked:Fire(dockable,sibling,DockedSide.Right)
 							elseif math.abs(Apos.x - (sApos.x + sAsize.x)) <= snapWidth then
 								x = sApos.x - cApos.x + sAsize.x
+								eventObjectDocked:Fire(dockable,sibling,DockedSide.Left)
 							end
 						end
 					end
@@ -1243,24 +1555,32 @@ local function CreateDockContainer(Container)
 				if Class.ConstrainToContainer then
 					if APY < cApos.y then
 						y = 0
+						eventObjectDocked:Fire(dockable,Container,DockedSide.Top)
 					elseif APY + ASY > cApos.y + cAsize.y then
 						y = cAsize.y - ASY
+						eventObjectDocked:Fire(dockable,Container,DockedSide.Bottom)
 					end
 					if APX < cApos.x then
 						x = 0
+						eventObjectDocked:Fire(dockable,Container,DockedSide.Left)
 					elseif APX + ASX > cApos.x + cAsize.x then
 						x = cAsize.x - ASX
+						eventObjectDocked:Fire(dockable,Container,DockedSide.Right)
 					end
 				elseif Class.SnapToEdge then
 					if math.abs(APY - cApos.y) <= snapWidth then
 						y = 0
+						eventObjectDocked:Fire(dockable,Container,DockedSide.Top)
 					elseif math.abs((APY+ASY) - (cApos.y+cAsize.y)) <= snapWidth then
 						y = cAsize.y - ASY
+						eventObjectDocked:Fire(dockable,Container,DockedSide.Bottom)
 					end
 					if math.abs(APX - cApos.x) <= snapWidth then
 						x = 0
+						eventObjectDocked:Fire(dockable,Container,DockedSide.Left)
 					elseif math.abs((APX+ASX) - (cApos.x+cAsize.x)) <= snapWidth then
 						x = cAsize.x - ASX
+						eventObjectDocked:Fire(dockable,Container,DockedSide.Right)
 					end
 				end
 			end
@@ -1281,15 +1601,14 @@ local function CreateDockContainer(Container)
 			drag_con:disconnect(); drag_con = nil
 			up_con:disconnect(); drag = nil
 			SetZIndex(dockable,zIndex)
-			if Class.DragStopCallback then
-				Class.DragStopCallback(dockable,mouse_offset)
-			end
+			eventDragStopped:Fire(dockable,mouse_offset)
 			return true
 		end
 		up_con = MouseDrag.MouseButton1Up:connect(mouse_up)
 		SetZIndex(dockable,zIndex + Class.DragZIndex)
 		MouseDrag.Parent = GetScreen(dockable)
 		Class.StopDrag = mouse_up
+		eventDragBegin:Fire(dockable,mouse_offset)
 	end
 	Class.InvokeDrag = InvokeDrag
 
@@ -1325,8 +1644,8 @@ Stylist.lua;
 ]]
 
 doc["Graphic"] = [==[
-Graphic ( string `polygon`, Vector2 `size`, table `style`, table `config` )
-	returns table `class`, Frame `graphic`
+Graphic ( string `polygon`, Vector2 `size`, table `style`, table `config` ) [constructor]
+	returns Graphic `object`, Frame `graphic`
 
 Creates a basic GUI graphic from a polygon or specified preset.
 
@@ -1335,14 +1654,17 @@ Arguments:
 		May be a string, referencing a preset (see Presets).
 		May also be a table that contains two tables, which represent the x and y coordinates (respectively) of each point in the polygon.
 		If coordinates are not between 0 and 1, a 3rd entry may be specified, which is the number to divide each coordinate by.
+
 	`size`
 		The size, in pixels, of the graphic.
 		May also be a table that contains the x and y size of the graphic.
+
 	`style`
 		A table that will be used with the graphic's Stylist, which controls the appearance of the graphic.
 		Optional; defaults to an empty table.
 		Note that the graphic essentially shares the same properties as a Frame object.
 		So, if ["BackgroundColor3"] = Color3.new(1,1,1) were in the table, the graphic's color would be set to white.
+
 	`config`
 		A table that alters how the graphic will be drawn.
 		It can contain the following possible values:
@@ -1356,17 +1678,26 @@ Arguments:
 				A Vector2. This offsets the polygon on the final image.
 
 Returns:
-	`class`
-	Contains the following values:
-	GUI
+	`object`
+		The Graphic object.
+
+	`graphic`
 		The Frame object which makes up the graphic.
 
-	Style
-		The Stylist object used to class the appearance of the graphic.
+Graphic Class:
+	This class contains the following members:
+
+	Readonly:
+		GUI
+			The Frame object which makes up the graphic.
+
+		Style
+			The Stylist object used to change the appearance of the graphic.
 		
-	Destroy ( )
-		Releases the resources used by this object.
-		Run this if you're no longer using this object.
+	Methods:
+		Destroy ( )
+			Releases the resources used by this object.
+			Run this if you're no longer using this object.
 
 
 Presets:
@@ -1667,8 +1998,8 @@ Graphic.lua;
 ]]
 
 doc["ScrollBar"] = [==[
-ScrollBar ( bool `horizontal`, number `size` )
-	returns: table `class`, Frame `scroll_bar`
+ScrollBar ( bool `horizontal`, number `size` ) [constructor]
+	returns: ScrollBar `object`, Frame `scroll_bar`
 
 Creates a primative scroll bar.
 This scroll bar features a draggable thumb, paging buttons at either end, and a clickable track.
@@ -1682,11 +2013,21 @@ Arguments:
 		Optional; defaults to ]==]..ENTRY_SIZE..[==[
 
 Returns:
-	`class`
-		Contains the following values:
+	`object`
+		The ScrollBar object.
+		
+	`scroll_bar`
+		The scroll bar GUI.
+
+
+ScrollBar Class:
+	This class contains the following members:
+
+	Readonly:
 		GUI
 			The scroll bar itself.
 
+	Fields:
 		ScrollIndex
 			A number indicating the current position of the scroll bar.
 
@@ -1699,11 +2040,9 @@ Returns:
 		PageIncrement
 			The amount to increase or decrease the ScrollIndex when ScrollDown or ScrollUp is called.
 
+	Methods:
 		Update ( )
 			Updates the scroll bar to reflect any changes.
-
-		UpdateCallback ( table `class` )
-			A function called first when `class`.Update is called.
 
 		CanScrollDown ( )
 			Returns whether the scroll bar can scroll down (or right if `horizontal` is true).
@@ -1743,8 +2082,10 @@ Returns:
 			Releases the resources used by this object.
 			Run this if you're no longer using this object.
 
-	`scroll_bar`
-		The scroll bar itself.
+	Callbacks:
+		UpdateCallback ( table `object` )
+			When Update is called, the function is called before updating.
+			If the function returns false, the update will be canceled.
 ]==]
 
 local function CreateScrollBar(horizontal,size)
@@ -1817,7 +2158,6 @@ local function CreateScrollBar(horizontal,size)
 		VisibleSpace = 0;
 		TotalSpace = 0;
 		PageIncrement = 1;
-		UpdateCallback = function()end;
 	}
 	
 	local function GetScrollPercent()
@@ -1876,22 +2216,26 @@ local function CreateScrollBar(horizontal,size)
 			Class.ScrollIndex = 0
 		end
 		
-		Class.UpdateCallback()
-		
+		if Class.UpdateCallback then
+			if Class.UpdateCallback(Class) == false then
+				return
+			end
+		end
+
 		local down = CanScrollDown()
 		local up = CanScrollUp()
 		if down ~= last_down then
 			last_down = down
 			ScrollDownFrame.Active = down
 			ScrollDownFrame.AutoButtonColor = down
-			ScrollDownGraphic.Stylist.SetGroup(down and ScrollStyle or ScrollStyle_ds)
+			ScrollDownGraphic.Stylist.SetProperties(down and ScrollStyle or ScrollStyle_ds)
 			ScrollDownFrame.BackgroundTransparency = down and 0.5 or 0.7
 		end
 		if up ~= last_up then
 			last_up = up
 			ScrollUpFrame.Active = up
 			ScrollUpFrame.AutoButtonColor = up
-			ScrollUpGraphic.Stylist.SetGroup(up and ScrollStyle or ScrollStyle_ds)
+			ScrollUpGraphic.Stylist.SetProperties(up and ScrollStyle or ScrollStyle_ds)
 			ScrollUpFrame.BackgroundTransparency = up and 0.5 or 0.7
 		end
 		ScrollThumbFrame.Visible = down or up
@@ -2103,8 +2447,8 @@ GetPadding.lua;
 ]]
 
 doc["StackingFrame"] = [==[
-StackingFrame ( GuiObject `frame`, bool `horizontal`, bool `alignment` )
-	returns: table `class`, Frame `stacking_frame`
+StackingFrame ( GuiObject `frame`, bool `horizontal`, bool `alignment` ) [constructor]
+	returns: StackingFrame `object`, Frame `stacking_frame`
 
 Creates a frame that automatically resizes based on the objects it contains.
 These objects are automatically positioned to stack next to each other.
@@ -2116,23 +2460,35 @@ Arguments:
 		Children that exist in this object beforehand will be added to the StackingFrame automatically. 
 		Use the AddObject function to add children afterwards.
 		Optional; defaults to a new Frame.
+
 	`horizontal`
 		If true, objects will be positioned horizontally instead of vertically.
 		Optional; defaults to false
+
 	`alignment`
 		If true, objects will be aligned to the right if vertical (else left), or the bottom if horizontal (else top).
 		Optional; defaults to false
 
 Returns:
-	`class`
-		Contains the following values:
+	`object`
+		The StackingFrame object.
+
+	`stacking_frame`
+		The stacking frame GUI.
+
+
+StackingFrame Class:
+	Contains the following members:
+
+	Readonly:
 		GUI
-			The stacking frame itself.
+			The stacking frame GUI.
 
 		List
 			The table containing the objects in the stacking frame.
 			Should only be used for ordering items! Use AddObject and RemoveObject accordingly!
 
+	Methods:
 		AddObject ( GuiObject `object`, number `index` )
 			Adds `object` to the list.
 			If `index` is specified, the object is added at that position in the list.
@@ -2140,12 +2496,15 @@ Returns:
 
 		RemoveObject ( number `index` )
 			Removes the object at `index` in the list.
-			If `index` is not specified, then the last object is removed.
-			`index` can also be an object in the list.
+			`index` can be an object in the list.
+			`index` can be nil, in which case the last item in the list is used.
+			`index` is clamped within the range of the list.
 
 		MoveObject ( number `index`, number `to` )
 			Moves the object at `index` to the new index `to`.
-			`index` and `to` can also be objects in the list.
+			`index` and `to` can be objects in the list.
+			`index` and `to` can be nil, in which case the last item in the list is used.
+			`index` and `to` are clamped within the range of the list.
 
 		GetIndex ( Instance `object` )
 			Returns the index of `object` in the stacking frame, if it exists there.
@@ -2154,15 +2513,13 @@ Returns:
 			Sets the amount of space between and around children, in pixels.
 			`padding` is the amount of space between each child.
 			`border` is the amount of space around all children.
+			
 		Update ( )
 			Updates the object.
 
 		Destroy ( )
 			Releases the resources used by this object.
 			Run this if you're no longer using this object.
-
-	`stacking_frame`
-		The stacking frame itself.
 ]==]
 
 local function CreateStackingFrame(Frame,horizontal,alignment)
@@ -2273,7 +2630,7 @@ local function CreateStackingFrame(Frame,horizontal,alignment)
 
 	local function AddObject(object,index)
 		if object:IsA"GuiObject" then
-			if index then
+			if type(index) == "number" then
 				table.insert(children,index,object)
 			else
 				table.insert(children,object)
@@ -2289,16 +2646,13 @@ local function CreateStackingFrame(Frame,horizontal,alignment)
 	end
 	
 	local function RemoveObject(index)
-		if type(index) == "number" then
-			index = ClampIndex(children,index)
-		else
-			if index == nil then
-				index = #children
-			else
-				index = GetIndex(children,index)
-			end
+		if index == nil then
+			index = #children
+		elseif type(index) ~= "number" then
+			index = GetIndex(children,index)
 		end
 		if index then
+			index = ClampIndex(children,index)
 			local object = table.remove(children,index)
 			if connections[object] then
 				connections[object]:disconnect()
@@ -2311,10 +2665,14 @@ local function CreateStackingFrame(Frame,horizontal,alignment)
 	end
 	
 	local function MoveObject(index,to)
-		if type(index) ~= "number" then
+		if index == nil then
+			index = #children
+		elseif type(index) ~= "number" then
 			index = GetIndex(children,index)
 		end
-		if type(to) ~= "number" then
+		if to == nil then
+			to = #children
+		elseif type(to) ~= "number" then
 			to = GetIndex(children,to)
 		end
 		if index and to then
@@ -2385,8 +2743,8 @@ ScrollBar.lua;
 ]]
 
 doc["ScrollingList"] = [==[
-ScrollingList ( table `list`, number `entry_height` )
-	returns: table `class`, Frame `scrolling_frame`
+ScrollingList ( table `list`, number `entry_height` ) [constructor]
+	returns: ScrollingList `object`, Frame `scrolling_frame`
 
 Creates a scrollable list designed to display a large number of items.
 
@@ -2395,25 +2753,35 @@ Arguments:
 		Contains the items to display in the list.
 		Items will be converted to a string before being displayed, so this may contain any type of value.
 		Optional; defaults to an empty table
+		
 	`entry_height`
 		Specifies the height, in pixels, of each displayed entry.
 		Optional; defaults to ]==]..ENTRY_SIZE..[==[
 
 Returns:
-	`class`
-		Contains the following values:
+	`object`
+		The ScrollingList object.
+
+	`scrolling_frame`
+		The scrolling list GUI.
+
+
+ScrollingList Class:
+	This class contains the folloing members.
+	Readonly:
 		List
 			The `list` table.
 			
 		GUI
-			The scrolling list itself.
+			The scrolling list GUI.
 
 		Scroll
-			A class for the list's scroll bar.
+			A object for the list's scroll bar.
 
 		EntryStylist
 			A stylist containing every displayed entry.
 
+	Methods:
 		AddEntry ( * `item`, number `index` )
 			Add an entry to the list and updates automatically.
 			`item` is the value to add to the list.
@@ -2437,9 +2805,6 @@ Returns:
 		Destroy ( )
 			Releases the resources used by this object.
 			Run this if you're no longer using this object.
-
-	`scrolling_frame`
-		The scrolling list itself.
 ]==]
 
 local function CreateScrollingList(List,entryHeight)
@@ -2598,8 +2963,8 @@ ScrollBar.lua;
 ]]
 
 doc["ScrollingContainer"] = [==[
-ScrollingContainer ( bool `v_scroll_bar`, bool `h_scroll_bar`, number `scroll_width` )
-	returns: table `class`, Frame `scrolling_container`
+ScrollingContainer ( bool `v_scroll_bar`, bool `h_scroll_bar`, number `scroll_width` ) [constructor]
+	returns: ScrollingContainer `object`, Frame `scrolling_container`
 
 Creates a container that can be scrolled with one or more scroll bars.
 The scroll bars update dynamically based on the size of the boundary and container.
@@ -2609,16 +2974,27 @@ Arguments:
 	`v_scroll_bar`
 		Indicates whether the container should have a vertical scroll bar.
 		Optional; defaults to true
+
 	`h_scroll_bar`
 		Indicates whether the container should have a horizontal scroll bar.
 		Optional; defaults to false
+		
 	`scroll_width`
 		Indicates the width the scrollbar(s).
 		Optional; defaults to ]==]..ENTRY_SIZE..[==[
 
 Returns:
-	`class`
-		Contains the following values:
+	`object`
+		The ScrollingContainer object.
+
+	`scrolling_container`
+		The scrolling container GUI.
+
+
+ScrollingContainer Class:
+	This class contains the following members:
+
+	Readonly:
 		Boundary
 			A Frame that represents the visible area, clipping off any overflowing content.
 
@@ -2626,19 +3002,17 @@ Returns:
 			A Frame that will contain other items to be displayed in the scrolling container.
 
 		GUI
-			The scrolling container itself.
+			The scrolling container GUI.
 
 		HScroll
-			The horizontal scroll bar class (if available).
+			The horizontal scroll bar object (if available).
 
 		VScroll
-			The vertical scroll bar class (if available).
-			
+			The vertical scroll bar object (if available).
+		
+	Methods:
 		Update ( )
 			Updates the scroll bar (or both, if present).
-
-	`scrolling_container`
-		The scrolling container itself.
 ]==]
 
 local function CreateScrollingContainer(v_scroll,h_scroll,scroll_width)
@@ -2776,8 +3150,8 @@ ScrollBar.lua;
 ]]
 
 doc["DetailedList"] = [==[
-DetailedList ( table `row_data_list`, table `column_scheme`, number `row_height` )
-	returns: table `class`, Frame `list_frame`
+DetailedList ( table `row_data_list`, table `column_scheme`, number `row_height` ) [constructor]
+	returns: DetailedList `object`, Frame `list_frame`
 
 Creates a customizable list for displaying data.
 
@@ -2786,22 +3160,46 @@ Arguments:
 		Holds all the data to be displayed.
 		It contains tables that hold data for each row in the list (see Row Data).
 		Optional; defaults to an empty table.
+
 	`column_scheme`
 		Contains information for how each column will be displayed (see Column Scheme).
+		
 	`row_height`
 		Sets the height of each row, in pixels.
 		Optional; defaults to ]==]..ENTRY_SIZE..[==[
 
 Returns:
-	`class`
-		Contains the following values:
+	`object`
+		The DetailedList object.
+		
+	`list_frame`
+		The DetailedList GUI.
+
+
+DetailedList Class:
+	This class contains the following members:
+	
+	Readonly:
 		GUI
-			The DetailedList itself.
+			The DetailedList GUI.
+
 		Data
 			The `row_data_list` table.
+
 		Scroll
 			A class for the list's scroll bar.
 
+		Stylist
+			A table that contains Stylist classes for controlling the appearance of the DetailedList.
+			It contains the following values:
+				Global: Every object in the DetailedList
+				Cell: Every cell in list
+				Header: Each cell the top (header) row of the list.
+				RowSpan: Each cell container of each row.
+				Rows: A table that contains Stylists for each row in the list, referenced by the row's data table.
+				Columns: A table that contains Stylists for each column in the list.
+
+	Methods:
 		AddRow ( table `row_data`, number `index`, table `style` )
 			Adds a new row to the list.
 			`row_data` is the data to display in the row.
@@ -2818,25 +3216,12 @@ Returns:
 			Updates the specified row to reflect the data in `row_data_list`
 			`index` may be a numerical index in the list, or a row data table in the list.
 
-		Stylist
-			A table that contains Stylist classes for controlling the appearance of the DetailedList.
-			It contains the following values:
-				Global: Every object in the DetailedList
-				Cell: Every cell in list
-				Header: Each cell the top (header) row of the list.
-				RowSpan: Each cell container of each row.
-				Rows: A table that contains Stylists for each row in the list, referenced by the row's data table.
-				Columns: A table that contains Stylists for each column in the list.
-
 		Update ( )
 			Updates the display.
 
 		Destroy ( )
 			Releases the resources used by this object.
 			Run this if you're no longer using this object.
-
-	`list_frame`
-		The DetailedList itself.
 
 
 Column Scheme:
@@ -2851,7 +3236,7 @@ Column Scheme:
 			The width of the column.
 		["style"] = (table)
 			Optional. Defines a custom style for the column.
-			If defined, then it will become the corresponding stylist in `class`.Stylist.Columns.
+			If defined, then it will become the corresponding stylist in `object`.Stylist.Columns.
 
 
 Row Data:
@@ -2880,28 +3265,29 @@ Column Scheme Types:
 			Row Data: string
 				The text to display in the cell.
 			Entries:
-				["callback"] = function (table `row_data`, table `class`)
+				["callback"] = function (table `row_data`, table `object`)
 					Called when the button is clicked.
 					`row_data` is the button's row data.
-					`class` is the DetailedList class.
+					`object` is the DetailedList object.
 		image-button
 			Row Data: string
 				The Content string of the image to display in the cell.
 			Entries:
-				["callback"] = function (table `row_data`, table `class`)
+				["callback"] = function (table `row_data`, table `object`)
 					Called when the button is clicked.
 					`row_data` is the button's row data.
-					`class` is the DetailedList class.
-		text-field (BUGGY)
+					`object` is the DetailedList object.
+		text-field
 			Row Data: string
 				The value displayed in the text field.
 			Entries:
-				["callback"] = function (string `text`, table `row_data`, table `class`)
-					Called when the field's text changes.
+				["callback"] = function (string `text`, table `row_data`, table `object`, bool `entered`)
+					Called when the field loses focus.
 					`text` is the field's current text.
 					`row_data` is the field's row data.
-					`class` is the DetailedList class.
-					This function should return a string (usually `text`).
+					`object` is the DetailedList object.
+					`entered` is whether the user pressed enter to lose focus.
+					This function should return a string (usually same as `text`).
 					If nil or false is returned, then the field will be reverted to the text before the change.
 		check-box
 			Row Data: bool
@@ -2913,10 +3299,10 @@ Column Scheme Types:
 				["unchecked"] = string, table
 					The image (Content string) to display when the box is unchecked.
 					If a table, its entries are the arguments to make a new Graphic.
-				["callback"] = function (table `row_data`, table `class`)
+				["callback"] = function (table `row_data`, table `object`)
 					Called when the check box is clicked.
 					`row_data` is the button's row data.
-					`class` is the DetailedList class.
+					`object` is the DetailedList object.
 					This function should return a bool, indicating if the check box should toggle its state.
 		drop-list (NOT IMPLEMENTED)
 			Row Data: string
@@ -2924,22 +3310,6 @@ Column Scheme Types:
 			Entries:
 				["items"] = table
 					A list of items to appear in the drop list.
-
-
-Stylists:
-	These stylists will let you easily control the appearance of the DetailedList.
-	Because many objects are apart of multiple stylists, certain stylists will override others when updated.
-	The following tree shows the precedence of each stylist:
-
-	Global
-		Header
-		Cell
-			Columns
-				Header
-			Rows
-		RowSpan
-
-	For example, if the Column stylist is updated, then the Header and Cell stylists will automatically update afterwards.
 ]==]
 
 --[==[EXCLUDE:
@@ -3020,8 +3390,8 @@ local function CreateDetailedList(RowDataList,ColumnScheme,rowHeight)
 ---- Stylists
 	local GlobalStylist = CreateStylist{		-- for all objects
 		TextColor3			= Color3.new(1,1,1);
-		TextXAlignment		= Enum.TextXAlignment.Center;
-		TextYAlignment		= Enum.TextYAlignment.Center;
+	--	TextXAlignment		= Enum.TextXAlignment.Center;
+	--	TextYAlignment		= Enum.TextYAlignment.Center;
 		TextTransparency	= 0;
 		Font				= Enum.Font.ArialBold;
 		FontSize			= Enum.FontSize.Size14;
@@ -3032,22 +3402,20 @@ local function CreateDetailedList(RowDataList,ColumnScheme,rowHeight)
 		BorderSizePixel			= 1;
 		BackgroundTransparency	= 0.7;
 	}
+	GlobalStylist.AddStylist(CellStylist)
 	local HeaderStylist = CreateStylist{		-- for all column headers
-		TextColor3				= Color3.new(1,1,1);
-		TextTransparency		= 0;
 		BackgroundColor3		= Color3.new(1,1,1);
 		BorderColor3			= Color3.new(1,1,1);
 		BorderSizePixel			= 1;
 		BackgroundTransparency	= 0.8;
 	}
+	GlobalStylist.AddStylist(HeaderStylist)
 	local RowSpanStylist = CreateStylist{		-- for cell container of each row
 		BackgroundTransparency	= 1;
 	}
+	GlobalStylist.AddStylist(RowSpanStylist)
 	local RowStylists = {}				-- list of stylists for each row
 	local ColumnStylists = {}			-- list of stylists for each column
-
-	GlobalStylist.AddOverride(HeaderStylist)
-	GlobalStylist.AddOverride(RowSpanStylist)
 
 	local Scroll,ScrollBarFrame = CreateScrollBar(false,rowHeight)
 	Modify(ScrollBarFrame){
@@ -3111,7 +3479,7 @@ local function CreateDetailedList(RowDataList,ColumnScheme,rowHeight)
 		Size = UDim2.new(0,rowHeight,0,rowHeight);
 		Position = UDim2.new(1,-rowHeight*0.75,0.5,-rowHeight/8);
 	}
-	local GraphicTextAlias = {["TextColor3"]="BackgroundColor3";["TextTransparency"]="BackgroundTransparency"}
+	local GraphicTextAlias = {["TextColor3"]="BackgroundColor3";["TextTransparency"]="BackgroundTransparency";["BorderSizePixel"]=""}
 	
 	local SortUpG,SortUp = CreateGraphic("arrow-up",Vector2.new(rowHeight,rowHeight))
 	GlobalStylist.AddStylist(SortUpG.Stylist,GraphicTextAlias)
@@ -3264,10 +3632,10 @@ local function CreateDetailedList(RowDataList,ColumnScheme,rowHeight)
 	-- generate a template for rows
 	local ColumnHeaderPos = UDim.new()
 	for i,cell_scheme in pairs(ColumnScheme) do
-		ColumnStylists[i] = CreateStylist(cell_scheme.style or {})
-		GlobalStylist.AddOverride(ColumnStylists[i])
-		ColumnStylists[i].AddOverride(HeaderStylist)
-		ColumnStylists[i].AddOverride(CellStylist)
+		local columnStylist = CreateStylist(cell_scheme.style)
+		ColumnStylists[i] = columnStylist
+	--	CellStylist.AddStylist(columnStylist)
+	--	columnStylist.AddStylist(HeaderStylist)
 		local cell_type = cell_scheme.type
 		local template
 		if cell_type == "text" then
@@ -3296,9 +3664,8 @@ local function CreateDetailedList(RowDataList,ColumnScheme,rowHeight)
 			Name = "ColumnHeader";
 			Parent = ColumnHeaderFrame;
 		}
-		GlobalStylist.AddObject(ColumnHeader)
-		ColumnStylists[i].AddObject(ColumnHeader)
 		HeaderStylist.AddObject(ColumnHeader)
+		columnStylist.AddObject(ColumnHeader)
 		SetText(ColumnHeader,cell_scheme.name)
 		-- sort on click
 		ColumnHeader.MouseButton1Click:connect(function()
@@ -3381,17 +3748,16 @@ local function CreateDetailedList(RowDataList,ColumnScheme,rowHeight)
 		NewRow.Parent = ListViewFrame
 		local Cells = NewRow:GetChildren()
 		local CellColPos = UDim.new()
-		RowStylists[RowData] = CreateStylist(style or {})
-		GlobalStylist.AddOverride(RowStylists[RowData])
-		CellStylist.AddOverride(RowStylists[RowData])
+		local rowStylist = CreateStylist(style)
+		RowStylists[RowData] = rowStylist
+	--	CellStylist.AddStylist(rowStylist)
 		for i,cell_scheme in pairs(ColumnScheme) do
 			local cell_type = cell_scheme.type
 			local Cell = Cells[i]
 			Cell.ZIndex = DetailedListFrame.ZIndex
-			GlobalStylist.AddObject(Cell)
-			ColumnStylists[i].AddObject(Cell)
-			RowStylists[RowData].AddObject(Cell)
 			CellStylist.AddObject(Cell)
+			ColumnStylists[i].AddObject(Cell)
+			rowStylist.AddObject(Cell)
 			local CellData = RowData[i]
 			local Width = cell_scheme.width
 			if cell_type == "text" then
@@ -3411,20 +3777,14 @@ local function CreateDetailedList(RowDataList,ColumnScheme,rowHeight)
 			elseif cell_type == "text-field" then
 				SetText(Cell,CellData)
 				local last_text = CellData
-				local e = false
-				Cell.Changed:connect(function(p)
-					if e then return end
-					if p == "Text" then
-						e = true
-						local text = cell_scheme.callback(Cell.Text,RowData,Class)
-						if text then
-							RowData[i] = text
-							SetText(Cell,text)
-							last_text = text
-						else
-							SetText(Cell,last_text)
-						end
-						e = false
+				Cell.FocusLost:connect(function(enter)
+					local text = cell_scheme.callback(Cell.Text,RowData,Class,enter)
+					if text then
+						RowData[i] = text
+						SetText(Cell,text)
+						last_text = text
+					else
+						SetText(Cell,last_text)
 					end
 				end)
 			elseif cell_type == "check-box" then
@@ -3482,7 +3842,6 @@ local function CreateDetailedList(RowDataList,ColumnScheme,rowHeight)
 		end
 		if RowData then
 			local stylist = RowStylists[RowData]
-			GlobalStylist.RemoveOverride(stylist)
 			stylist.Destroy()
 			RowStylists[RowData] = nil
 
@@ -3511,6 +3870,17 @@ local function CreateDetailedList(RowDataList,ColumnScheme,rowHeight)
 		end
 		Update()
 		return RowData
+	end
+
+	do
+		local tmp = {}
+		for k,v in pairs(RowDataList) do
+			tmp[k] = v
+			RowDataList[k] = nil
+		end
+		for i=1,#tmp do
+			Class.AddRow(tmp[i])
+		end
 	end
 
 ---- Finish
@@ -3562,8 +3932,8 @@ StackingFrame.lua;
 ]]
 
 doc["TabContainer"] = [==[
-TabContainer ( table `content_list`, number `selected_height`, number `tab_height` )
-	returns: table `class`, Frame `tab_container`
+TabContainer ( table `content_list`, number `selected_height`, number `tab_height` ) [constructor]
+	returns: TabContainer `object`, Frame `tab_container`
 
 Creates a container that can hold multiple GuiObjects in a single space by using tabs.
 A GuiObject added to the container gets its own tab, which shows the GuiObject's Name, and displays the GuiObject when clicked.
@@ -3572,19 +3942,37 @@ Arguments:
 	`content_list`
 		A list of GuiObjects to be initially added to the container.
 		Optional; defaults to an empty table
+
 	`selected_height`
 		The height of a selected tab.
 		Optional; defaults to 24
+
 	`tab_height`
 		The height, in pixels, of a tab that is not selected.
 		Optional; defaults to 20
 
 Returns:
-	`class`
-		Contains the following values:
-		GUI
-			The container itself.
+	`object`
+		The TabContainer object.
+	`tab_container`
+		The container GUI.
 
+
+TabContainer Class:
+	This class contains the following members:
+
+	Readonly:
+		GUI
+			The container GUI.
+
+		TabStylist
+			A Stylist object that controls the appearance of unselected tabs.
+			Also controls the appearance of the content border.
+
+		SelectedTabStylist
+			A Stylist object that controls the appearance of the selected tab.
+
+	Methods:
 		AddTab ( GuiObject `content`, number `index` )
 			Adds `content` to the container at `index`.
 			if `index` is not specified, then it will be added to the end.
@@ -3608,19 +3996,10 @@ Returns:
 		GetSelectedIndex ( )
 			Returns the index of the selected tab, and its GUI.
 
-		TabStylist
-			A Stylist object that controls the appearance of unselected tabs.
-			Also controls the appearance of the content border.
-
-		SelectedTabStylist
-			A Stylist object that controls the appearance of the selected tab.
-
 		Destroy ( )
 			Releases the resources used by this object.
 			Run this if you're no longer using this object.
 
-	`tab_container`
-		The container itself.
 ]==]
 
 local function CreateTabContainer(ContentList,SelectedTabHeight,TabHeight)
@@ -3654,26 +4033,24 @@ local function CreateTabContainer(ContentList,SelectedTabHeight,TabHeight)
 	local TabHeaderFrame = TabContainerFrame.Tabs
 	local TabHeaderClass = CreateStackingFrame(TabHeaderFrame,true,true)
 	
-	local TabStyle = {
+	local TabStylist = CreateStylist({
 		BackgroundColor3 = Color3.new();
 		BackgroundTransparency = 0.5;
 		BorderColor3 = Color3.new(1,1,1);
 		TextColor3 = Color3.new(1,1,1);
 		Font = "ArialBold";
 		FontSize = "Size14";
-	}
-	local TabStylist = CreateStylist(TabStyle)
+	})
 	TabStylist.AddObject(TabContentFrame)
 	
-	local SelectedTabStyle = {
+	local SelectedTabStylist = CreateStylist({
 		BackgroundColor3 = Color3.new();
 		BackgroundTransparency = 0.5;
 		BorderColor3 = Color3.new(1,1,1);
 		TextColor3 = Color3.new(1,1,1);
 		Font = "ArialBold";
 		FontSize = "Size14";
-	}
-	local SelectedTabStylist = CreateStylist(SelectedTabStyle)
+	})
 	
 	local function GetIndex(content)
 		for index,c in pairs(content_list) do
@@ -3859,18 +4236,169 @@ end
 
 lib.TabContainer = CreateTabContainer
 
+local dialog = {}
+doc["dialog"] = [==[
+	A library of various user-input dialogs.
+]==]
+
+--[[DEPEND:
+Stylist.lua;
+]]
+
+doc["dialog.Confirm"] = [==[
+dialog.Confirm ( GuiBase `parent`, string `message`, Stylist `style`, Stylist `button_style` ) [function]
+	returns bool `result`
+
+Displays a confirmation message and waits for the user to click Yes, No, or Cancel.
+
+Arguments:
+	`parent`
+		The object to display the dialog in.
+
+	`message`
+		The message to display to the user.
+		Optional; defaults to "Are you sure?"
+
+	`stylist`
+		A stylist to apply to the dialog.
+		Optional; defaults to a premade stylist
+		
+	`button_style`
+		A stylist to apply to buttons.
+		Automatically inherits from `stylist`.
+		Optional; defaults to a premade stylist
+
+Returns:
+	`result`
+		The result of the dialog.
+		If the user clicked Yes, returns true.
+		If the user clicked No, returns false.
+		If the user clicked Cancel, returns nil.
+]==]
+
+function dialog.Confirm(parent,message,global,buttons)
+	GlobalStylist = global or CreateStylist{
+		BackgroundColor3 = Color3.new(0,0,0);
+		BorderColor3 = Color3.new(1,1,1);
+		TextColor3 = Color3.new(1,1,1);
+		Font = "ArialBold";
+		FontSize = "Size14";
+	}
+	ButtonStylist = buttons or CreateStylist{
+		Style = "RobloxButton";
+	}
+
+	local style_in = GlobalStylist.StylistIn(ButtonStylist)
+	GlobalStylist.AddStylist(ButtonStylist)
+
+	local Dialog = Create'ImageButton'{
+		Name = "ConfirmDialog";
+		Size = UDim2.new(1.5,0,1.5,0);
+		Position = UDim2.new(-0.25,0,-0.25,0);
+		BorderSizePixel = 0;
+		AutoButtonColor = false;
+		BackgroundTransparency = 0.5;
+		BackgroundColor3 = Color3.new(0,0,0);
+		Active = true;
+		GlobalStylist.AddObject(Create'Frame'{
+			Name = "DialogBox";
+			Size = UDim2.new(0,250,0,150);
+			Position = UDim2.new(0.5,-125,0.5,-75);
+			Create'Frame'{
+				Name = "MarginBox";
+				BackgroundTransparency = 1;
+				Size = UDim2.new(1,-16,1,-16);
+				Position = UDim2.new(0,8,0,8);
+				GlobalStylist.AddObject(Create'TextLabel'{
+					BackgroundTransparency = 1;
+					TextScaled = true;
+					Text = message or "";
+					Size = UDim2.new(1,-16,0.8,-24);
+					Position = UDim2.new(0,8,0,8);
+				});
+				Create'Frame'{
+					Name = "Buttons";
+					BackgroundTransparency = 1;
+					Size = UDim2.new(1,0,0.2,0);
+					Position = UDim2.new(0,0,0.8,0);
+---- Buttons
+					ButtonStylist.AddObject(Create'TextButton'{
+						Name = "YesButton";
+						Text = "Yes";
+						Size = UDim2.new(1/3,0,1,0);
+						Position = UDim2.new(0/3,0,0,0);
+					});
+					ButtonStylist.AddObject(Create'TextButton'{
+						Name = "NoButton";
+						Text = "No";
+						Size = UDim2.new(1/3,0,1,0);
+						Position = UDim2.new(1/3,0,0,0);
+					});
+					ButtonStylist.AddObject(Create'TextButton'{
+						Name = "CancelButton";
+						Text = "Cancel";
+						Size = UDim2.new(1/3,0,1,0);
+						Position = UDim2.new(2/3,0,0,0);
+					});
+----/Buttons
+				};
+			};
+		});
+	}
+	local Buttons = Dialog.DialogBox.MarginBox.Buttons
+	
+	local Result = nil
+	local Event = Instance.new("BindableEvent")
+
+	Buttons.YesButton.MouseButton1Click:connect(function()
+		Result = true
+		Event:Fire()
+	end)
+	Buttons.NoButton.MouseButton1Click:connect(function()
+		Result = false
+		Event:Fire()
+	end)
+	Buttons.CancelButton.MouseButton1Click:connect(function()
+		Result = nil
+		Event:Fire()
+	end)
+
+	SetZIndex(Dialog,10)
+
+	Dialog.Parent = parent
+	Event.Event:wait()
+	Dialog:Destroy()
+	Event:Destroy()
+
+	if global == nil then
+		GlobalStylist.Destroy()
+	else
+		if not style_in then
+			GlobalStylist.RemoveStylist(ButtonStylist)
+		end
+	end
+	if buttons == nil then
+		ButtonStylist.Destroy()
+	end
+
+	return Result
+end
+
+lib.dialog = dialog
+
 --[[DEPEND:]]
 
 doc["Help"] = [==[
-Help ( string `query`, bool `no_print` )
+Help ( string `query`, bool `no_print` ) [function]
 	returns: string `message`
 
 Returns help information for the library.
 
 Arguments:
 	`query`
-		The name of the function to display help for (case-insensitive).
-		If unspecified, a list of functions will be displayed.
+		The name of the entry to display help for (case-insensitive).
+		If unspecified, a list of entries will be displayed.
+
 	`no_print`
 		If set to true, the returned message will NOT also be printed.
 		Note than when printed this way, the message is automatically formatted to maintain readability. 
@@ -3881,25 +4409,50 @@ Returns:
 
 
 Documentation Remarks:
-	Function values follow this format:
+	Argument and return values follow this format:
 		type `reference`
 
 	"type" is the argument's value type (string, bool, table, etc).
-	An asterisk (*) as the type indicates that the argument may be any type.
+	Some arguments may accept more than one type. If so, these types will be indicated in the argument's description.
+	An asterisk (*) as the type indicates that the argument may be of any type.
+	Types can also be Roblox Instances, or objects defined by this library.
+	The type "GuiText" refers to TextLabels, TextButtons, and TextBoxes.
 
 	In the documentation, a word enclosed in grave accents (i.e. `example`) refers to the indicated value.
 
-	The type "GuiText" refers to TextLabels, TextButtons, and TextBoxes.
-	This type doesn't actually exist, but it is used here to indicate that the above types are acceptable.
+	Each entry has one of various types, which are indicated between square brackets (i.e. [type] ):
+		[const]
+			A constant, unchanging value.
+		[enum]
+			An enumerated type.
+		[function]
+			A function; receives arguments and returns values.
+		[constructor]
+			Similar to a function, buts returns an instantiated object.
 
-	A "Callback" refers to a function that can be overridden by the user, in order to run his/her own code at a specific time.
-
+	Documentation of a constructor will also contain a definition of the class it creates.
+	Classes contain various member types:
+		Readonly
+			A value that is meant only to be read, not written to.
+		Field
+			A value that can be changed, affecting the state of the object.
+		Method
+			A function that does something internally when called.
+			NOTE: Currently, methods must be called with ".", not ":". This may change in future versions.
+		Callback
+			Similar to a field in that it can be set, but the value is a function.
+			When set, the function will be invoked at some point, and may have arguments passed to it.
+			What the function returns can affect the object's behavior.
+		Event
+			Allows the user to connect functions (called "listeners").
+			At some point, the event will fire, which then calls each listener connected to it.
+			Values may be passed to each listener, received as "parameters".
 ]==]
 
 local default_help = [==[
-Use ]==]..PROJECT_NAME..[==[.Help("FunctionName") for more information about a specific function.
+Use ]==]..PROJECT_NAME..[==[.Help("EntryName") for more information about a specific entry.
 
-Functions:
+Entries:
 ]==]
 
 do
@@ -3915,7 +4468,7 @@ do
 	end
 end
 
-doc["FunctionName"] = [==[
+doc["EntryName"] = [==[
 That was an example, silly.
 
 ]==]..default_help

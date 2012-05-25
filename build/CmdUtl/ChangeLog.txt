@@ -1,0 +1,32 @@
+CmdUtl Change Log
+
+v5.1.0:
+	- started change log
+	- GUI layout persists between places (layout saving)
+	- implemented settings panel;
+		- Menus tab; toggles visibility of menus on panel
+		- Data tab; presents the option of deleting saved plugin data
+	- Move, Rotate, and Resize are the only menus visible by default; use settings to add other menus
+	- improved menu dragging
+	- panel and info box properly stick to bottom and right edge of screen when it resizes
+	- info box is always displayed
+	- when a menu with a selected tool is collapsed, the tool is deselected
+	- added help button (unimplemented)
+	- compatable with Lua 5.2
+	- removed RbxUtility dependency to support offline mode
+v5.0.0:
+	- first release
+	- ported some tools from v3;
+		- MoveAxis, MoveFirst, MoveObject
+		- RotatePivot, RotateGroup, RotateObject
+		- ResizeObject, ResizeCenter
+	- implemented custom Selector
+	- added SelectEdge menu
+	- added Clipboard menu
+	- implemented dynamic GUI panel;
+		- info box can be dragged and docked
+		- info box becomes right-aligned when docked to the right edge of the screen
+		- panel can be dragged and docked
+		- panel collapses into the screen edge that it's docked on
+		- menus can be expanded and collapsed
+		- menus can be rearranged via drag & drop

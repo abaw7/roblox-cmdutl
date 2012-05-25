@@ -1,77 +1,25 @@
-local CoreGui = game:GetService("CoreGui")
-
-local NewCFrame = CFrame.new
-local Vector3FromNormalId = Vector3.FromNormalId
-local Vector3FromAxis = Vector3.FromAxis
-
-local ceil = math.ceil
-local floor = math.floor
-local function half(number)
-	return floor(number + 0.5)
+local unpack = unpack
+if _VERSION == "Lua 5.2" then
+	unpack = table.unpack
 end
 
+-- snap `number` to nearest `by`
 local function Snap(number,by)
 	if by == 0 then
 		return number
 	else
-		return floor(number/by + 0.5)*by
+		return math.floor(number/by + 0.5)*by
 	end
 end
 
-local function NumNormal(n)
-	return n == 0 and 0 or n/math.abs(n)
-end
-
+-- returns the number to a fixed number of decimal places
+-- FOR TRUE FIXED SIZE: use string.format with "%.[idp]f" tag, where [idp] is the `idp` argument
 local function NumFix(num,idp)
 	local mult = 10^(idp or 0)
-	return floor(num*mult + 0.5)/mult
+	return math.floor(num*mult + 0.5)/mult
 end
 
-local function StrFix(str,size,pad)
-	local str_size = #str
-	if size > str_size then
-		return string.rep(pad or "0",size-str_size) .. str
-	elseif size < str_size then
-		return str:sub(str_size-size+1)
-	else
-		return str
-	end
-end
-
-local function IsPosInt(n)
-	return type(n) == "number" and n > 0 and floor(n) == n
-end
-
-function IsArray(array)
-	local max,n = 0,0
-	for k,v in pairs(array) do
-		if not IsPosInt(k) then
-			return false
-		end
-		max = math.max(max,k)
-		n = n + 1
-	end
-	return n == max
-end
-
-local function IsVarName(name)
-	return name:match("^[%a_][%w_]-$") == name
-end
-
-local ContentProvider = Game:GetService("ContentProvider")
-local BASEURL = ContentProvider.BaseUrl
-local function Preload(content)
-	ContentProvider:Preload(content)
-end
-
-local valid_protocols = {
-	["http"] = true;
-	["https"] = true;
-	["rbxhttp"] = true;
-	["rbxasset"] = true;
-	["rbxassetid"] = true;
-}
-
+-- returns the index of `value` in `table`, if it exists
 local function GetIndex(table,value)
 	for i,v in pairs(table) do
 		if v == value then
@@ -80,19 +28,8 @@ local function GetIndex(table,value)
 	end
 end
 
--- checks if the value is a Content string
-function IsContentString(link)
-	if type(link) == "string" then
-		local protocol = link:match("^(.+)://(.+)$")
-		return valid_protocols[protocol] or false
-	else
-		return false
-	end
-end
-
 local function class(name)
 	local def = {}
-	getfenv(0)[name] = def
 	return function(ctor, static)
 		local nctor = function(...)
 			local this = {}
@@ -101,8 +38,8 @@ local function class(name)
 			end
 			return this
 		end
-		getfenv(0)['Create'..name] = nctor
 		if static then static(def) end
+		return nctor,def
 	end
 end
 
@@ -159,7 +96,7 @@ EventGroup
 	**The group does not have to be created beforehand.
 ]]
 
-class'EventGroup'(function(def)
+CreateEventGroup = class'EventGroup'(function(def)
 	local eventContainer = {}
 	local groupContainer = {}
 
@@ -231,50 +168,31 @@ end)
 local Event = CreateEventGroup()
 
 -- go-to for outputting info
-function Log(...)
-	local out = ""
-	local inp = {...}
-	local n = #inp
-	for i,msg in pairs(inp) do
-		out = out .. tostring(msg)
-	end
-	----------------
-	print("LOG:",out)
-end
+do
+	local prefix = PROJECT_NAME:upper()
 
-function LogWarning(...)
-	local out = ""
-	local inp = {...}
-	local n = #inp
-	for i,msg in pairs(inp) do
-		out = out .. tostring(msg)
-	end
-	----------------
-	print("LOG_WARNING:",out)
-end
-
-function LogError(...)
-	local out = ""
-	local inp = {...}
-	local n = #inp
-	for i,msg in pairs(inp) do
-		out = out .. tostring(msg)
-	end
-	----------------
-	print("LOG_ERROR:",out)
-end
-
-local function TransformModel(objects, center, new, recurse)
-	for _,object in pairs(objects) do
-		if object:IsA("BasePart") then
-			object.CFrame = new:toWorldSpace(center:toObjectSpace(object.CFrame))
+	local function combine(...)
+		local out = ""
+		for i,msg in pairs{...} do
+			out = out .. tostring(msg)
 		end
-		if recurse then
-			TransformModel(object:GetChildren(), center, new, true)
-		end
+		return out
+	end
+
+	function Log(...)
+		print(prefix.."_MESSAGE:",combine(...))
+	end
+
+	function LogWarning(...)
+		print(prefix.."_WARNING:",combine(...))
+	end
+
+	function LogError(...)
+		print(prefix.."_ERROR:",combine(...))
 	end
 end
 
+-- recurses through table of `objects`, filtering by `class`, and adds matching objects to `out`
 local function RecurseFilter(object,class,out)
 	if object:IsA(class) then
 		table.insert(out,object)
@@ -284,94 +202,111 @@ local function RecurseFilter(object,class,out)
 	end
 end
 
+-- wrapper for RecurseFilter
 local function GetFiltered(class,objects)
 	local out = {}
 	for _,object in pairs(objects) do
 		RecurseFilter(object,class,out)
 	end
 	return out
-end;
+end
 
-local bb_points = {
-	Vector3.new(-1,-1,-1);
-	Vector3.new( 1,-1,-1);
-	Vector3.new(-1, 1,-1);
-	Vector3.new( 1, 1,-1);
-	Vector3.new(-1,-1, 1);
-	Vector3.new( 1,-1, 1);
-	Vector3.new(-1, 1, 1);
-	Vector3.new( 1, 1, 1);
-}
+-- returns the bounding box for a group of objects
+-- returns Vector3 `size`, Vector3 `position`
+-- may also return a list of parts in the bounding box
+local GetBoundingBox
+do
+	local bb_points = {
+		Vector3.new(-1,-1,-1);
+		Vector3.new( 1,-1,-1);
+		Vector3.new(-1, 1,-1);
+		Vector3.new( 1, 1,-1);
+		Vector3.new(-1,-1, 1);
+		Vector3.new( 1,-1, 1);
+		Vector3.new(-1, 1, 1);
+		Vector3.new( 1, 1, 1);
+	}
 
--- recursive for GetBoundingBox
-local function RecurseGetBoundingBox(object,sides,parts)
-	if object:IsA"BasePart" then
-		local mod = object.Size/2
-		local rot = object.CFrame
-		for i = 1,#bb_points do
-			local point = rot*NewCFrame(mod*bb_points[i]).p
-			if point.x > sides[1] then sides[1] = point.x end
-			if point.x < sides[2] then sides[2] = point.x end
-			if point.y > sides[3] then sides[3] = point.y end
-			if point.y < sides[4] then sides[4] = point.y end
-			if point.z > sides[5] then sides[5] = point.z end
-			if point.z < sides[6] then sides[6] = point.z end
+	-- helper for GetBoundingBox
+	local function RecurseGetBoundingBox(object,sides,parts)
+		if object:IsA"BasePart" then
+			local mod = object.Size/2
+			local rot = object.CFrame
+			for i = 1,#bb_points do
+				local point = rot*CFrame.new(mod*bb_points[i]).p
+				if point.x > sides[1] then sides[1] = point.x end
+				if point.x < sides[2] then sides[2] = point.x end
+				if point.y > sides[3] then sides[3] = point.y end
+				if point.y < sides[4] then sides[4] = point.y end
+				if point.z > sides[5] then sides[5] = point.z end
+				if point.z < sides[6] then sides[6] = point.z end
+			end
+			if parts then parts[#parts + 1] = object end
 		end
-		if parts then parts[#parts + 1] = object end
+		local children = object:GetChildren()
+		for i = 1,#children do
+			RecurseGetBoundingBox(children[i],sides,parts)
+		end
 	end
-	local children = object:GetChildren()
-	for i = 1,#children do
-		RecurseGetBoundingBox(children[i],sides,parts)
+
+	GetBoundingBox = function(objects,return_parts)
+		local sides = {-math.huge;math.huge;-math.huge;math.huge;-math.huge;math.huge}
+		local parts
+		if return_parts then
+			parts = {}
+		end
+		for i = 1,#objects do
+			RecurseGetBoundingBox(objects[i],sides,parts)
+		end
+		return
+			Vector3.new(sides[1]-sides[2],sides[3]-sides[4],sides[5]-sides[6]),
+			Vector3.new((sides[1]+sides[2])/2,(sides[3]+sides[4])/2,(sides[5]+sides[6])/2),
+			parts
 	end
 end
 
-local function GetBoundingBox(objects,return_parts)
-	local sides = {-math.huge;math.huge;-math.huge;math.huge;-math.huge;math.huge}
-	local parts
-	if return_parts then
-		parts = {}
-	end
-	for i = 1,#objects do
-		RecurseGetBoundingBox(objects[i],sides,parts)
-	end
-	return
-		Vector3.new(sides[1]-sides[2],sides[3]-sides[4],sides[5]-sides[6]),
-		Vector3.new((sides[1]+sides[2])/2,(sides[3]+sides[4])/2,(sides[5]+sides[6])/2),
-		parts
-end
-
-local anchor_lookup = {}
-local function Anchor(part,reset)
-	if reset then
-		local anchored = anchor_lookup[part]
-		if anchored ~= nil then
-			part.Anchored = anchored
-			anchor_lookup[part] = nil
-		end
-	else
-		if anchor_lookup[part] == nil then
-			anchor_lookup[part] = part.Anchored
-			part.Anchored = true
-		end
-	end
-end
-
-
-local DisplayInfoGUI
-local function DisplayInfo(...)
-	if DisplayInfoGUI then
-		DisplayInfoGUI.Text = ""
-		for i,v in pairs{...} do
-			if type(v) == "number" then
-				DisplayInfoGUI.Text = DisplayInfoGUI.Text .. tostring(NumFix(math.abs(v),5)) .. " "
-			else
-				DisplayInfoGUI.Text = DisplayInfoGUI.Text .. tostring(v) .. " "
+-- DEBUG: attempts to fix erratic behavior of unanchored parts by temporarily anchoring
+local Anchor
+do
+	local anchor_lookup = {}
+	Anchor = function(part,reset)
+		if reset then
+			local anchored = anchor_lookup[part]
+			if anchored ~= nil then
+				part.Anchored = anchored
+				anchor_lookup[part] = nil
+			end
+		else
+			if anchor_lookup[part] == nil then
+				anchor_lookup[part] = part.Anchored
+				part.Anchored = true
 			end
 		end
 	end
 end
 
+local DisplayInfoGUI
+-- Displays info from tools and whatnot
+-- DisplayInfoGUI is reserved for a GuiText, Message, or other object with a "Text" property, on which the info will be displayed
+-- if not defined, the info will be printed instead
+local function DisplayInfo(...)
+	local str = {}
+	for i,v in pairs{...} do
+		if type(v) == "number" then
+			str[#str+1] = tostring(NumFix(math.abs(v),5))
+		else
+			str[#str+1] = tostring(v)
+		end
+	end
+	if DisplayInfoGUI then
+		DisplayInfoGUI.Text = table.concat(str," ")
+	else
+		print(table.concat(str," "))
+	end
+end
+
 local Camera = Workspace.CurrentCamera
+-- camera remains stationary, but looks at `cf`
 local function CameraLookAt(cf)
 	Camera.Focus = cf
 	Camera.CoordinateFrame = CFrame.new(Camera.CoordinateFrame.p,cf.p)

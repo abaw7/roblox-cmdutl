@@ -1,7 +1,4 @@
-local Tool = "Copy"
-
-table.insert(Menus[Menu].Tools,Tool)
-Variables[Tool] = Menus[Menu].Variables
+local Tool = AddTool("Clipboard","Copy")
 
 OnToolSelect[Tool] = function(tool)
 	local selection = Selection:Get()

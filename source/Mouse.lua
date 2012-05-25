@@ -4,6 +4,7 @@ local ALT_KEYS = {
 }
 local Mouse_Alt_Active = false
 
+
 local CTRL_KEYS = {
 	["\47"] = true;
 	["\48"] = true;
@@ -30,12 +31,12 @@ local function DoubleClick(Mouse)
 	local Target = GetTop(Mouse.Target,ModelScope)
 	if Target then
 		if Target:IsA"Model" then
-			SelectionSet{}
+			Selection:Set{}
 			ModelScope = Target
 			DisplayInfo("Scope into:",ModelScope:GetFullName())
 		end
 	elseif ModelScope:IsDescendantOf(Workspace) then
-		SelectionSet{ModelScope}
+		Selection:Set{ModelScope}
 		ModelScope = ModelScope.Parent
 		DisplayInfo("Scope out to:",ModelScope:GetFullName())
 	end
@@ -48,18 +49,18 @@ local function Click(Mouse,first,remove)
 		LastTarget = Target
 		if Target then
 			if Mouse_Ctrl_Active then
-				if InSelection(Target) then
+				if Selection:Contains(Target) then
 					SelectionRemove(Target)
 					return true
 				else
-					SelectionAdd(Target)
+					Selection:Add(Target)
 					return false
 				end
 			else
-				SelectionSet{Target}
+				Selection:Set{Target}
 			end
 		else
-			SelectionSet{}
+			Selection:Set{}
 		end
 	else
 		if Target ~= LastTarget then
@@ -67,13 +68,13 @@ local function Click(Mouse,first,remove)
 			if Mouse_Ctrl_Active then
 				if Target then
 					if remove then
-						SelectionRemove(Target)
+						Selection:Remove(Target)
 					else
-						SelectionAdd(Target)
+						Selection:Add(Target)
 					end
 				end
 			else
-				SelectionSet{Target}
+				Selection:Set{Target}
 			end
 		end
 	end
@@ -90,13 +91,12 @@ local function ActivateMouse()
 	
 	ModelScope = Workspace
 
-	local Down = false
-	
+	local mouse_down = false
 	local select_hold = true
 	local click_stamp = 0
 	
 	Event.Mouse.Down = Mouse.Button1Down:connect(function()
-		Down = true
+		mouse_down = true
 		if not Mouse_Alt_Active then
 			local stamp = tick()
 			if stamp-click_stamp < 0.3 then
@@ -113,7 +113,7 @@ local function ActivateMouse()
 		end
 	end)
 	Event.Mouse.Up = Mouse.Button1Up:connect(function()
-		Down = false
+		mouse_down = false
 		Event.Mouse.SelectHold = nil
 	end)
 	Event.Mouse.Move = Mouse.Move:connect(function()

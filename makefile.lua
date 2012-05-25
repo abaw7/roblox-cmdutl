@@ -1,8 +1,10 @@
 -- CmdUtl Makefile --
 
 -- Options
---option('write_path',"--[[FILE: %s]]")
+option('write_path',"--[[FILE: %s]]")
 --option('show_messages',0)
+
+META = data [[METADATA]]
 
 -- Roblox Plugin folder:
 	-- Windows 5 (XP)
@@ -15,16 +17,20 @@ local output_files = {
 	-- to main build
 	[[build/CmdUtl/CmdUtl.lua]];
 	-- directly to roblox plugin
-	--rbx_plugins/[[CmdUtl/CmdUtl.lua]];
+	rbx_plugins/[[CmdUtl/CmdUtl.lua]];
 }
 
+read [[METADATA]]				{'main'}
 read [[source/Header.lua]]		{'main'}
+read [[source/RbxUtility.lua]]	{'main'}
 read [[source/Utility.lua]]		{'main'}
-read [[source/Settings.lua]]	{'main'}
+read [[source/Activator.lua]]	{'main'}
 read [[source/Overlay.lua]]		{'main'}
 read [[source/Selection.lua]]	{'main'}
 read [[source/Mouse.lua]]		{'main'}
 read [[source/Tools.lua]]		{'main'}
+read [[source/Menus.lua]]		{'main'}
+read [[source/Settings.lua]]	{'main'}
 
 -- Menus
 	local menus = [[source/Menus]]
@@ -68,6 +74,7 @@ read [[source/Tools.lua]]		{'main'}
 		read(menu/[[SelectEdge.lua]])		{'main'}
 
 read [[source/GUI.lua]]				{'main'}
+read [[source/SettingsPanel.lua]]	{'main'}
 read [[source/Footer.lua]]			{'main'}
 
 write 'main' (output_files)

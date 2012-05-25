@@ -1,13 +1,11 @@
-local Tool = "RotatePivot"
-
-table.insert(Menus["Rotate"].Tools,Tool)
-Variables[Tool] = Menus["Rotate"].Variables
+local Tool = AddTool("Rotate","RotatePivot")
 
 local min_size = Vector3.new(4,4,4)
 
 OnToolSelect[Tool] = function(tool,vars)
-	OverlayArcHandles.Color = BrickColor.new("Br. yellowish green")
-	OverlayArcHandles.Visible = true
+	local OverlayArcHandles = Overlay:Adornment('ArcHandles',{
+		Color = BrickColor.new("Br. yellowish green");
+	})
 
 	local origin = {}
 	local corigin
@@ -27,7 +25,7 @@ OnToolSelect[Tool] = function(tool,vars)
 	end)
 	Event[tool].Drag = OverlayArcHandles.MouseDrag:connect(function(axis,angle)
 		local rdis = Snap(math.deg(angle),inc)
-		local a = Vector3FromAxis(axis)*math.rad(rdis)
+		local a = Vector3.FromAxis(axis)*math.rad(rdis)
 		local new = corigin * CFrame.Angles(a.x,a.y,a.z)
 		for part,cframe in pairs(origin) do
 			Anchor(part)
@@ -40,12 +38,12 @@ OnToolSelect[Tool] = function(tool,vars)
 end
 
 OnSelectionChanged[Tool] = function(tool,vars)
-	local selection = GetFilteredSelection("BasePart")
+	local selection = Selection:GetFiltered("BasePart")
 	ToolSelection = selection
-	WrapOverlay(selection[1],false,min_size)
+	Overlay:Wrap(selection[1],min_size)
 end
 
 OnToolDeselect[Tool] = function(tool,vars)
 	Event[tool] = nil
-	OverlayArcHandles.Visible = false
+	Overlay:Clear()
 end

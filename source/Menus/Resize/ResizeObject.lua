@@ -1,12 +1,9 @@
-local Tool = "ResizeObject"
-
-table.insert(Menus[Menu].Tools,Tool)
-Variables[Tool] = Menus[Menu].Variables
+local Tool = AddTool("Resize","ResizeObject")
 
 OnToolSelect[Tool] = function(tool,vars)
-	OverlayHandles.Color = BrickColor.new("Cyan")
-	OverlayHandles.Style = "Resize"
-	OverlayHandles.Visible = true
+	local OverlayHandles = Overlay:Adornment('Handles',{
+		Color = BrickColor.new("Cyan");
+	})
 
 	local origin = {}
 	local first
@@ -14,7 +11,7 @@ OnToolSelect[Tool] = function(tool,vars)
 	local cinc
 	local inc
 	Event[tool].Down = OverlayHandles.MouseButton1Down:connect(function(face)
-		face_mult,face_size,face_vec = FACE_MULTIPLIER[face],FACE_COMPONENT[face],Vector3FromNormalId(face)
+		face_mult,face_size,face_vec = FACE_MULTIPLIER[face],FACE_COMPONENT[face],Vector3.FromNormalId(face)
 		first = ToolSelection[1]
 		for k in pairs(origin) do
 			origin[k] = nil
@@ -49,17 +46,18 @@ OnToolSelect[Tool] = function(tool,vars)
 			Anchor(part,true)
 			if part == first then DisplayInfo("Resize:",mod.magnitude) end
 		end
-		SetOverlay(first.Size,first.CFrame)
+		Overlay.Size = first.Size
+		Overlay.CFrame = first.CFrame
 	end)
 end
 
 OnSelectionChanged[Tool] = function(tool,vars)
-	local selection = GetFilteredSelection("BasePart")
+	local selection = Selection:GetFiltered("BasePart")
 	ToolSelection = selection
-	WrapOverlay(selection[1],false)
+	Overlay:Wrap(selection[1])
 end
 
 OnToolDeselect[Tool] = function(tool,vars)
 	Event[tool] = nil
-	OverlayHandles.Visible = false
+	Overlay:Clear()
 end

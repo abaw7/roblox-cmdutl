@@ -1,12 +1,10 @@
-local Tool = "MoveAxis"
-
-table.insert(Menus[Menu].Tools,Tool)
-Variables[Tool] = Menus[Menu].Variables
+local Tool = AddTool("Move","MoveAxis")
 
 OnToolSelect[Tool] = function(tool,vars)
-	OverlayHandles.Color = BrickColor.new("Bright orange")
-	OverlayHandles.Style = "Movement"
-	OverlayHandles.Visible = true
+	local OverlayHandles = Overlay:Adornment('Handles',{
+		Color = BrickColor.new("Bright orange");
+		Style = "Movement";
+	})
 
 	local origin = {}
 	local ocf = Overlay.CFrame
@@ -24,24 +22,24 @@ OnToolSelect[Tool] = function(tool,vars)
 	end)
 	Event[tool].Drag = OverlayHandles.MouseDrag:connect(function(face,distance)
 		local rdis = Snap(distance,inc)
-		local pos = Vector3FromNormalId(face)*rdis
+		local pos = Vector3.FromNormalId(face)*rdis
 		for part,cframe in pairs(origin) do
 			Anchor(part)
 			part.CFrame = cframe + pos
 			Anchor(part,true)
 		end
-		Overlay.CFrame = ocf+pos
+		Overlay.CFrame = ocf + pos
 		DisplayInfo("Move:",rdis)
 	end)
 end
 
 OnSelectionChanged[Tool] = function(tool,vars)
-	local selection = GetFilteredSelection("BasePart")
+	local selection = Selection:GetFiltered("BasePart")
 	ToolSelection = selection
-	WrapOverlay(selection,true)
+	Overlay:Wrap(selection)
 end
 
 OnToolDeselect[Tool] = function(tool,vars)
 	Event[tool] = nil
-	OverlayHandles.Visible = false
+	Overlay:Clear()
 end

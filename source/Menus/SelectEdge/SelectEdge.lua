@@ -1,7 +1,13 @@
-local Tool = "SelectEdge"
+local Tool = AddTool("SelectEdge","SelectEdge")
 
-table.insert(Menus[Menu].Tools,Tool)
-Variables[Tool] = Menus[Menu].Variables
+local function FilterTarget(target)
+	if target then
+		if not target.Locked then
+			return target
+		end
+	end
+	return nil
+end
 
 OnToolSelect[Tool] = function(tool,vars)
 	local Mouse = Plugin:GetMouse()
@@ -18,9 +24,12 @@ OnToolSelect[Tool] = function(tool,vars)
 	local select_hold = true
 	local click_stamp = 0
 	
-	OverlayGUIParent(nil)
-	OverlayArcHandles.Color = BrickColor.new("Bright yellow")
-	OverlaySelectionBox.Color = BrickColor.new("Bright yellow")
+	local OverlayArcHandles = Overlay:Adornment('ArcHandles',{
+		Color = BrickColor.new("Bright yellow");
+	})
+	local OverlaySelectionBox = Overlay:Adornment('SelectionBox',{
+		Color = BrickColor.new("Bright yellow");
+	})
 	
 	local function select_edge()
 		OverlayArcHandles.Visible = false
@@ -28,15 +37,14 @@ OnToolSelect[Tool] = function(tool,vars)
 		Overlay.Size = Vector3.new(1,1,1)
 		local Target = FilterTarget(Mouse.Target)
 		if Target then
-			OverlayGUIParent(CoreGui)
-			local pos = Target.CFrame:toObjectSpace(Mouse.Hit).p
-			local JointCenter = CFrame.new(GetRelativeEdge(pos,Target.Size/2,vars.EdgeSnap))
+			Overlay:SetParent(CoreGui)
+			local JointCenter = CFrame.new(GetNearestEdge(Target,Mouse.Hit.p,vars.EdgeSnap))
 			Overlay.CFrame = Target.CFrame * JointCenter
 			SelectEdgeVisible = true
 		else
 			SelectEdgeVisible = false
 			OverlayArcHandles.Visible = false
-			OverlayGUIParent(nil)
+			Overlay:SetParent(nil)
 		end
 	end
 	
@@ -87,7 +95,7 @@ OnToolSelect[Tool] = function(tool,vars)
 	end)
 	Event.SelectEdge.Arc.Drag = OverlayArcHandles.MouseDrag:connect(function(axis,angle)
 		local rdis = Snap(math.deg(angle),inc)
-		local a = Vector3FromAxis(axis)*math.rad(rdis)
+		local a = Vector3.FromAxis(axis)*math.rad(rdis)
 		local new = corigin * CFrame.Angles(a.x,a.y,a.z)
 		for part,cframe in pairs(origin) do
 			Anchor(part)
@@ -100,13 +108,11 @@ OnToolSelect[Tool] = function(tool,vars)
 end
 
 OnSelectionChanged[Tool] = function(tool,vars)
-	ToolSelection = GetFilteredSelection("BasePart")
+	ToolSelection = Selection:GetFiltered("BasePart")
 end
 
 OnToolDeselect[Tool] = function(tool,vars)
 	SelectEdgeVisible = false
 	Event.SelectEdge = nil
-	OverlayGUIParent(nil)
-	OverlaySelectionBox.Visible = false
-	OverlayArcHandles.Visible = false
+	Overlay:Clear()
 end

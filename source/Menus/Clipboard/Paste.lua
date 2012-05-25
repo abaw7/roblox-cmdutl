@@ -1,7 +1,4 @@
-local Tool = "Paste"
-
-table.insert(Menus[Menu].Tools,Tool)
-Variables[Tool] = Menus[Menu].Variables
+local Tool = AddTool("Clipboard","Paste")
 
 OnToolSelect[Tool] = function(tool)
 	if #ClipboardContents == 0 then

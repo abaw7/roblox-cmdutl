@@ -1,12 +1,9 @@
-local Tool = "MoveFirst"
-
-table.insert(Menus[Menu].Tools,Tool)
-Variables[Tool] = Menus[Menu].Variables
+local Tool = AddTool("Move","MoveFirst")
 
 OnToolSelect[Tool] = function(tool,vars)
-	OverlayHandles.Color = BrickColor.new("Bright orange")
-	OverlayHandles.Style = "Resize"
-	OverlayHandles.Visible = true
+	local OverlayHandles = Overlay:Adornment('Handles',{
+		Color = BrickColor.new("Bright orange");
+	})
 
 	local origin = {}
 	local corigin
@@ -26,7 +23,7 @@ OnToolSelect[Tool] = function(tool,vars)
 	end)
 	Event[tool].Drag = OverlayHandles.MouseDrag:connect(function(face,distance)
 		local rdis = Snap(distance,inc)
-		local cf = corigin * CFrame.new(Vector3FromNormalId(face)*rdis)
+		local cf = corigin * CFrame.new(Vector3.FromNormalId(face)*rdis)
 		for part,cframe in pairs(origin) do
 			Anchor(part)
 			part.CFrame = cf:toWorldSpace(cframe)
@@ -38,12 +35,12 @@ OnToolSelect[Tool] = function(tool,vars)
 end
 
 OnSelectionChanged[Tool] = function(tool,vars)
-	local selection = GetFilteredSelection("BasePart")
+	local selection = Selection:GetFiltered("BasePart")
 	ToolSelection = selection
-	WrapOverlay(selection[1])
+	Overlay:Wrap(selection[1])
 end
 
 OnToolDeselect[Tool] = function(tool,vars)
 	Event[tool] = nil
-	OverlayHandles.Visible = false
+	Overlay:Clear()
 end
