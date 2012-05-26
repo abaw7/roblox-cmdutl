@@ -62,15 +62,27 @@ local SaveSettingsData
 ----LOAD AND DECODE
 do
 	-- combine `b` into `a`; if entries in `a` are nil, they are replaced by the corresponding entry in `b`
+	-- arrays: if a value in `b` does not exist in `a`, then add it to `a`
 	local function combine_table(a,b)
-		for k,v in pairs(b) do
-			if type(v) == "table" then
-				if a[k] == nil or type(a[k]) ~= "table" then
-					a[k] = {}
+		if IsArray(a) and IsArray(b) then
+			for i = 1,#b do
+				local v = b[i]
+				local null = true
+				for n = 1,#a do
+					if a[n] == v then null = false break end
 				end
-				combine_table(a[k],v)
-			else
-				a[k] = v
+				if null then table.insert(a,v) end
+			end
+		else
+			for k,v in pairs(b) do
+				if type(v) == "table" then
+					if a[k] == nil or type(a[k]) ~= "table" then
+						a[k] = {}
+					end
+					combine_table(a[k],v)
+				else
+					a[k] = v
+				end
 			end
 		end
 	end

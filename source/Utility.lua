@@ -28,6 +28,24 @@ local function GetIndex(table,value)
 	end
 end
 
+-- returns whether a value is a positive integer
+local function IsPosInt(n)
+	return type(n) == "number" and n > 0 and math.floor(n) == n
+end
+
+-- returns whether a table is a valid array
+function IsArray(array)
+	local max,n = 0,0
+	for k,v in pairs(array) do
+		if not IsPosInt(k) then
+			return false
+		end
+		max = math.max(max,k)
+		n = n + 1
+	end
+	return n == max
+end
+
 local function class(name)
 	local def = {}
 	return function(ctor, static)
