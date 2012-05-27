@@ -32,6 +32,18 @@ AddMenu("Clipboard",{
 	Color = Color3.new(1,1,1);
 })
 
+AddMenu("Joint",{
+	Variables = {
+		MoveIncrement = 0.5;
+		RotIncrement = 360/32;
+	};
+	VariableList = {
+		{"MoveIncrement","Move Increment"};
+		{"RotIncrement","Rotation Increment"};
+	};
+	Color = Color3.new(0.768628, 0.156863, 0.109804);
+})
+
 AddMenu("SelectEdge",{
 	Variables = {
 		EdgeSnap = 0.5;

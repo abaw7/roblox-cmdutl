@@ -67,6 +67,14 @@ read [[source/Settings.lua]]	{'main'}
 		read (menu/[[Paste.lua]])			{'main'}
 		read (menu/[[Duplicate.lua]])		{'main'}
 
+	-- Joint Menu
+		local menu = menus/[[Joint]]
+
+		read (menus/[[Joint.lua]])			{'main'}
+		read (menu/[[JointEdit.lua]])		{'main'}
+		read (menu/[[JointMake.lua]])		{'main'}
+		read (menu/[[JointBreak.lua]])		{'main'}
+
 	-- SelectEdge Menu
 		local menu = menus/[[SelectEdge]]
 
