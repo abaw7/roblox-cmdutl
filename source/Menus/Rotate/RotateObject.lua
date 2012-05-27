@@ -3,14 +3,14 @@ local Tool = AddTool("Rotate","RotateObject")
 local min_size = Vector3.new(4,4,4)
 
 OnToolSelect[Tool] = function(tool,vars)
-	local OverlayArcHandles = Overlay:Adornment('ArcHandles',{
+	Overlay:NewAdorn("Handles",'ArcHandles',{
 		Color = BrickColor.new("Br. yellowish green");
 	})
 
 	local origin = {}
 	local ocf = Overlay.CFrame
 	local inc = vars.Increment
-	Event[tool].Down = OverlayArcHandles.MouseButton1Down:connect(function(axis)
+	Event[tool].Down = Overlay.Adorn.Handles.MouseButton1Down:connect(function(axis)
 		inc = vars.Increment
 		for k in pairs(origin) do
 			origin[k] = nil
@@ -21,7 +21,7 @@ OnToolSelect[Tool] = function(tool,vars)
 		ocf = Overlay.CFrame
 		DisplayInfo("Rotate:",0)
 	end)
-	Event[tool].Drag = OverlayArcHandles.MouseDrag:connect(function(axis,angle)
+	Event[tool].Drag = Overlay.Adorn.Handles.MouseDrag:connect(function(axis,angle)
 		local rdis = Snap(math.deg(angle),inc)
 		local a = Vector3.FromAxis(axis)*math.rad(rdis)
 		local new = CFrame.Angles(a.x,a.y,a.z)

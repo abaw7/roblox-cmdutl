@@ -1,14 +1,14 @@
 local Tool = AddTool("Move","MoveObject")
 
 OnToolSelect[Tool] = function(tool,vars)
-	local OverlayHandles = Overlay:Adornment('Handles',{
+	Overlay:NewAdorn("Handles",'Handles',{
 		Color = BrickColor.new("Bright orange");
 	})
 
 	local origin = {}
 	local ocf = Overlay.CFrame
 	local inc = vars.Increment
-	Event[tool].Down = OverlayHandles.MouseButton1Down:connect(function(face)
+	Event[tool].Down = Overlay.Adorn.Handles.MouseButton1Down:connect(function(face)
 		inc = vars.Increment
 		for k in pairs(origin) do
 			origin[k] = nil
@@ -19,7 +19,7 @@ OnToolSelect[Tool] = function(tool,vars)
 		ocf = Overlay.CFrame
 		DisplayInfo("Move:",0)
 	end)
-	Event[tool].Drag = OverlayHandles.MouseDrag:connect(function(face,distance)
+	Event[tool].Drag = Overlay.Adorn.Handles.MouseDrag:connect(function(face,distance)
 		local rdis = Snap(distance,inc)
 		local cf = CFrame.new(Vector3.FromNormalId(face)*rdis)
 		for part,cframe in pairs(origin) do

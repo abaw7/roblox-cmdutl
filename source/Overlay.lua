@@ -1,4 +1,5 @@
 CreateOverlay = class'Overlay'(function(def)
+	local CoreGui = Game:GetService("CoreGui")
 	local adornmentSet = {}
 	local overlayPart = Create 'Part' {
 		Name			= "SelectionOverlay";
@@ -11,10 +12,17 @@ CreateOverlay = class'Overlay'(function(def)
 		Transparency	= 1;
 		Archivable		= false;
 	}
+	
+	def.Adorn = adornmentSet
 
-	function def:Adornment(class,props)
+	function def:RemoveAdorn(name)
+		local adornment = adornmentSet[name]
+		adornmentSet[name] = nil
+		adornment:Destroy()
+	end
+
+	function def:NewAdorn(name,class,props)
 		local properties = {
-			Name		= "Overlay"..class;
 			Adornee		= overlayPart;
 			Archivable	= false;
 		}
@@ -22,19 +30,23 @@ CreateOverlay = class'Overlay'(function(def)
 			properties[k] = v
 		end
 		local adornment = Create(class)(properties)
-		adornmentSet[adornment] = true
+		adornment.Name = name
+		if adornmentSet[name] then
+			self:RemoveAdorn(name)
+		end
+		adornmentSet[name] = adornment
 		return adornment
 	end
 
 	function def:SetParent(parent)
-		for adornment in pairs(adornmentSet) do
+		for name,adornment in pairs(adornmentSet) do
 			adornment.Parent = parent
 		end
 	end
 
 	function def:Clear()
-		for adornment in pairs(adornmentSet) do
-			adornmentSet[adornment] = nil
+		for name,adornment in pairs(adornmentSet) do
+			adornmentSet[name] = nil
 			adornment:Destroy()
 		end
 	end
@@ -72,6 +84,15 @@ CreateOverlay = class'Overlay'(function(def)
 			overlayPart.CFrame = pos
 			self:SetParent(CoreGui)
 			return size,pos
+		end
+	end
+
+	function def:Destroy()
+		setmetatable(self,nil)
+		self:Clear()
+		overlayPart:Destroy()
+		for k in pairs(self) do
+			self[k] = nil
 		end
 	end
 

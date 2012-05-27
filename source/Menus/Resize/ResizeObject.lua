@@ -1,7 +1,7 @@
 local Tool = AddTool("Resize","ResizeObject")
 
 OnToolSelect[Tool] = function(tool,vars)
-	local OverlayHandles = Overlay:Adornment('Handles',{
+	Overlay:NewAdorn("Handles",'Handles',{
 		Color = BrickColor.new("Cyan");
 	})
 
@@ -10,7 +10,7 @@ OnToolSelect[Tool] = function(tool,vars)
 	local face_mult,face_size,face_vec
 	local cinc
 	local inc
-	Event[tool].Down = OverlayHandles.MouseButton1Down:connect(function(face)
+	Event[tool].Down = Overlay.Adorn.Handles.MouseButton1Down:connect(function(face)
 		face_mult,face_size,face_vec = FACE_MULTIPLIER[face],FACE_COMPONENT[face],Vector3.FromNormalId(face)
 		first = ToolSelection[1]
 		for k in pairs(origin) do
@@ -27,7 +27,7 @@ OnToolSelect[Tool] = function(tool,vars)
 		end
 		DisplayInfo("Resize:",0)
 	end)
-	Event[tool].Drag = OverlayHandles.MouseDrag:connect(function(face,distance)
+	Event[tool].Drag = Overlay.Adorn.Handles.MouseDrag:connect(function(face,distance)
 		local dis = distance*face_mult
 		for part,info in pairs(origin) do
 			local sz,ff,ffm = info[2],info[3],info[4]

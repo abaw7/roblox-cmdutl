@@ -24,16 +24,16 @@ OnToolSelect[Tool] = function(tool,vars)
 	local select_hold = true
 	local click_stamp = 0
 	
-	local OverlayArcHandles = Overlay:Adornment('ArcHandles',{
+	Overlay:NewAdorn("Handles",'ArcHandles',{
 		Color = BrickColor.new("Bright yellow");
 	})
-	local OverlaySelectionBox = Overlay:Adornment('SelectionBox',{
+	Overlay:NewAdorn("Box",'SelectionBox',{
 		Color = BrickColor.new("Bright yellow");
 	})
 	
 	local function select_edge()
-		OverlayArcHandles.Visible = false
-		OverlaySelectionBox.Visible = true
+		Overlay.Adorn.Handles.Visible = false
+		Overlay.Adorn.Box.Visible = true
 		Overlay.Size = Vector3.new(1,1,1)
 		local Target = FilterTarget(Mouse.Target)
 		if Target then
@@ -43,7 +43,7 @@ OnToolSelect[Tool] = function(tool,vars)
 			SelectEdgeVisible = true
 		else
 			SelectEdgeVisible = false
-			OverlayArcHandles.Visible = false
+			Overlay.Adorn.Handles.Visible = false
 			Overlay:SetParent(nil)
 		end
 	end
@@ -55,8 +55,8 @@ OnToolSelect[Tool] = function(tool,vars)
 		end
 	end)
 	Event.SelectEdge.Up = Mouse.Button1Up:connect(function()
-		OverlayArcHandles.Visible = true
-		OverlaySelectionBox.Visible = false
+		Overlay.Adorn.Handles.Visible = true
+		Overlay.Adorn.Box.Visible = false
 		Overlay.Size = Vector3.new(4,4,4)
 		Down = false
 		
@@ -68,8 +68,8 @@ OnToolSelect[Tool] = function(tool,vars)
 			if Mouse_Alt_Active then
 				select_edge()
 			else
-				OverlayArcHandles.Visible = true
-				OverlaySelectionBox.Visible = false
+				Overlay.Adorn.Handles.Visible = true
+				Overlay.Adorn.Box.Visible = false
 				Overlay.Size = Vector3.new(4,4,4)
 			end
 		end
@@ -79,7 +79,7 @@ OnToolSelect[Tool] = function(tool,vars)
 	local ocf = CFrame.new()
 	local origin = {}
 	local corigin = CFrame.new()
-	Event.SelectEdge.Arc.Down = OverlayArcHandles.MouseButton1Down:connect(function(axis)
+	Event.SelectEdge.Arc.Down = Overlay.Adorn.Handles.MouseButton1Down:connect(function(axis)
 		if SelectEdgeVisible then
 			inc = vars.RotIncrement
 			corigin = Overlay.CFrame
@@ -93,7 +93,7 @@ OnToolSelect[Tool] = function(tool,vars)
 			DisplayInfo("Rotate:",0)
 		end
 	end)
-	Event.SelectEdge.Arc.Drag = OverlayArcHandles.MouseDrag:connect(function(axis,angle)
+	Event.SelectEdge.Arc.Drag = Overlay.Adorn.Handles.MouseDrag:connect(function(axis,angle)
 		local rdis = Snap(math.deg(angle),inc)
 		local a = Vector3.FromAxis(axis)*math.rad(rdis)
 		local new = corigin * CFrame.Angles(a.x,a.y,a.z)
