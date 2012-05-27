@@ -3,11 +3,13 @@ CmdUtl Change Log
 v5.1.0:
 	- started change log
 	- GUI layout persists between places (layout saving)
+	- some other data persists as well
 	- implemented settings panel;
 		- Menus tab; toggles visibility of menus on panel
 		- Data tab; presents the option of deleting saved plugin data
 	- Move, Rotate, and Resize are the only menus visible by default; use settings to add other menus
 	- improved menu dragging
+	- moved GUI structure around
 	- panel and info box properly stick to bottom and right edge of screen when it resizes
 	- info box is always displayed
 	- when a menu with a selected tool is collapsed, the tool is deselected
