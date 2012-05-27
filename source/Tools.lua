@@ -86,12 +86,13 @@ local function SelectTool(tool)
 		SelectedTool = tool
 		local callback = ToolSelectCallback[tool]
 		if callback then callback() end
-		OnToolSelect[tool](tool,Variables[tool])
+		local func = OnToolSelect[tool]
+		if func then func(tool,Variables[tool]) end
 
 		local callback = SelectionChangedCallback[tool]
 		if callback then callback() end
 		local func = OnSelectionChanged[tool]
-		if func then func(tool,vars) end
+		if func then func(tool,Variables[tool]) end
 	end
 end
 
