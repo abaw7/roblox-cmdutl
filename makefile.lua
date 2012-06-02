@@ -37,6 +37,16 @@ read [[source/Tools.lua]]		{'main'}
 		read (menu/[[MoveFirst.lua]])		{'main'}
 		read (menu/[[MoveObject.lua]])		{'main'}
 
+	-- Insert Menu
+		local menu = menus/[[Insert]]
+
+		read (menus/[[Insert.lua]])			{'main'}
+		read (menu/[[Brick.lua]])			{'main'}
+		read (menu/[[CornerWedge.lua]])		{'main'}
+		read (menu/[[TrussPart.lua]])		{'main'}
+		read (menu/[[Wedge.lua]])		{'main'}
+
+
 	-- Rotation Menu
 		local menu = menus/[[Rotate]]
 
